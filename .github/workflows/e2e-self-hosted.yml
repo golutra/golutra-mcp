@@ -1,0 +1,84 @@
+name: E2E Self-Hosted
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_probe:
+        description: "Run the optional app-backed diagnose probe"
+        required: false
+        default: false
+        type: boolean
+      cli_path:
+        description: "Override golutra-cli path for this run"
+        required: false
+        type: string
+      workspace_path:
+        description: "Override workspace path for this run"
+        required: false
+        type: string
+      profile:
+        description: "Override Golutra profile for this run"
+        required: false
+        type: choice
+        default: stable
+        options:
+          - dev
+          - canary
+          - stable
+
+concurrency:
+  group: golutra-mcp-e2e-self-hosted
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Real MCP smoke test
+    runs-on:
+      - self-hosted
+      - macOS
+    timeout-minutes: 15
+    env:
+      GOLUTRA_E2E_CLI_PATH: ${{ inputs.cli_path || vars.GOLUTRA_E2E_CLI_PATH || '/Applications/Golutra.app/Contents/MacOS/golutra-cli' }}
+      GOLUTRA_E2E_WORKSPACE_PATH: ${{ inputs.workspace_path || vars.GOLUTRA_E2E_WORKSPACE_PATH }}
+      GOLUTRA_E2E_PROFILE: ${{ inputs.profile || vars.GOLUTRA_E2E_PROFILE || 'stable' }}
+      GOLUTRA_E2E_USER_ID: ${{ inputs.app_probe && vars.GOLUTRA_E2E_USER_ID || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Validate runner inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GOLUTRA_E2E_WORKSPACE_PATH}" ]]; then
+            echo "Repository variable GOLUTRA_E2E_WORKSPACE_PATH or workflow input workspace_path is required." >&2
+            exit 1
+          fi
+          if [[ ! -x "${GOLUTRA_E2E_CLI_PATH}" ]]; then
+            echo "golutra-cli was not found or is not executable: ${GOLUTRA_E2E_CLI_PATH}" >&2
+            exit 1
+          fi
+          if [[ ! -d "${GOLUTRA_E2E_WORKSPACE_PATH}" ]]; then
+            echo "Workspace path does not exist: ${GOLUTRA_E2E_WORKSPACE_PATH}" >&2
+            exit 1
+          fi
+          if [[ "${{ inputs.app_probe }}" == "true" && -z "${GOLUTRA_E2E_USER_ID}" ]]; then
+            echo "Repository variable GOLUTRA_E2E_USER_ID is required when app_probe=true." >&2
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit and packaging checks
+        run: npm run check && npm run package:check
+
+      - name: Run real MCP smoke test
+        run: npm run test:e2e

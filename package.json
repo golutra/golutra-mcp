@@ -1,0 +1,71 @@
+{
+  "name": "golutra-mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for Golutra via golutra-cli.",
+  "type": "module",
+  "private": false,
+  "author": "Golutra Contributors",
+  "license": "Apache-2.0",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/golutra/golutra-mcp.git"
+  },
+  "homepage": "https://github.com/golutra/golutra-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/golutra/golutra-mcp/issues"
+  },
+  "bin": {
+    "golutra-mcp": "dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    ".env.example",
+    "README.md",
+    "startup_processmd.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "keywords": [
+    "golutra",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "cli"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.0",
+    "eslint": "^9.21.0",
+    "globals": "^15.15.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.25.0",
+    "vitest": "^3.0.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "clean": "node --eval \"for (const path of ['dist','coverage']) { try { require('node:fs').rmSync(path, { recursive: true, force: true }); } catch {} }\"",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint .",
+    "package:check": "npm pack --dry-run",
+    "prepack": "npm run build",
+    "test:e2e": "npm run build && node scripts/e2e-smoke.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  }
+}
