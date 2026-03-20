@@ -1,14 +1,49 @@
-# golutra-mcp
+<p align="center">
+  <a href="https://www.golutra.com/" target="_blank" rel="noopener noreferrer">
+    <img
+      width="96"
+      src="./assets/readme/golutra-logo.png"
+      alt="golutra logo"
+    />
+  </a>
+</p>
 
-`golutra-mcp` is an MCP bridge project for Golutra.
+<h1 align="center">golutra-mcp</h1>
 
-`golutra-mcp` 是一个面向 Golutra 的 MCP 桥接项目。
+<p align="center">
+  MCP bridge for Golutra via golutra-cli. <br />
+  通过 golutra-cli 暴露 Golutra 能力的 MCP 桥接层。
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/golutra-mcp"><img src="https://img.shields.io/npm/v/golutra-mcp?label=npm" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/golutra-mcp"><img src="https://img.shields.io/npm/dm/golutra-mcp?label=downloads" alt="npm downloads"></a>
+  <a href="https://github.com/golutra/golutra-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/golutra/golutra-mcp/ci.yml?branch=main&label=ci" alt="ci"></a>
+  <a href="https://www.npmjs.com/package/golutra-mcp"><img src="https://img.shields.io/badge/node-%3E%3D20.11-2f7af8" alt="node version"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-ff9f1a" alt="license"></a>
+</p>
+
+<p align="center">
+  <a href="#english">English</a> ·
+  <a href="#中文">中文</a> ·
+  <a href="https://www.npmjs.com/package/golutra-mcp">npm</a> ·
+  <a href="https://github.com/golutra/golutra-mcp">GitHub</a> ·
+  <a href="./STARTUP_PROCESS.md">Startup Process</a> ·
+  <a href="./docs/GOLUTRA_DIAGNOSE_EXAMPLES.md">Diagnose Examples</a>
+</p>
+
+<p align="center">
+  Keep Golutra as the app runtime. Use golutra-cli as the stable boundary. Expose the workflow through MCP. <br />
+  保留 Golutra 作为桌面运行时，以 golutra-cli 作为稳定边界，再通过 MCP 暴露给外部 AI 宿主。
+</p>
+
+---
 
 ## English
 
 ### Install
 
-`golutra-mcp` is now published on npm as `golutra-mcp@0.1.0`.
+`golutra-mcp` is now published on npm as `golutra-mcp`.
 
 Install it as a normal MCP server package:
 
@@ -16,10 +51,30 @@ Install it as a normal MCP server package:
 npm install -g golutra-mcp
 ```
 
-Run it with a published Golutra desktop installation:
+Run it with a published Golutra desktop installation.
+
+macOS:
 
 ```bash
 export GOLUTRA_CLI_PATH=/Applications/Golutra.app/Contents/MacOS/golutra-cli
+export GOLUTRA_PROFILE=stable
+export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
+golutra-mcp
+```
+
+Windows PowerShell:
+
+```powershell
+$env:GOLUTRA_CLI_PATH="C:\Users\<you>\AppData\Local\Programs\Golutra\golutra-cli.exe"
+$env:GOLUTRA_PROFILE="stable"
+$env:GOLUTRA_WORKSPACE_PATH="C:\absolute\path\to\workspace"
+golutra-mcp
+```
+
+Linux:
+
+```bash
+export GOLUTRA_CLI_PATH=/usr/bin/golutra-cli
 export GOLUTRA_PROFILE=stable
 export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
 golutra-mcp
@@ -61,9 +116,40 @@ That means this repository is mainly responsible for:
 To work correctly, the server still depends on the existing Golutra desktop runtime:
 
 - a locally installed Golutra desktop application
-- a reachable `golutra-cli` binary, usually `/Applications/Golutra.app/Contents/MacOS/golutra-cli`
+- a reachable `golutra-cli` binary
 - a valid Golutra workspace path
 - the target Golutra desktop app profile running locally, usually `stable`
+
+Default CLI discovery by platform:
+
+- macOS: `/Applications/Golutra.app/Contents/MacOS/golutra-cli`, then `~/Applications/Golutra.app/Contents/MacOS/golutra-cli`, then `golutra-cli` from `PATH`
+- Windows: `%LOCALAPPDATA%\Programs\Golutra\golutra-cli.exe`, then `%ProgramFiles%\Golutra\golutra-cli.exe`, then `%ProgramFiles(x86)%\Golutra\golutra-cli.exe`, then `golutra-cli.exe` from `PATH`
+- Linux: `~/.local/bin/golutra-cli`, then `~/.cargo/bin/golutra-cli`, then `/usr/local/bin/golutra-cli`, `/usr/bin/golutra-cli`, `/opt/Golutra/golutra-cli`, `/app/bin/golutra-cli`, then `golutra-cli` from `PATH`
+
+### Diagnostics
+
+Use `golutra-diagnose` when you need to separate:
+
+- CLI path problems
+- missing or invalid workspace paths
+- missing user identity for app-backed probes
+- app-not-running or profile-mismatch failures
+- generic app command failures
+
+Detailed diagnostic output fields and common `reasonCode` values are documented in `docs/GOLUTRA_DIAGNOSE_EXAMPLES.md`.
+
+### What An AI Host Should Do
+
+If an AI system or MCP-compatible host sees this repository, the intended usage is:
+
+1. Launch `golutra-mcp` as a local `stdio` MCP server, not as an HTTP service.
+2. Provide `GOLUTRA_CLI_PATH`, `GOLUTRA_PROFILE`, and usually `GOLUTRA_WORKSPACE_PATH`.
+3. Call `golutra-get-context` or `golutra-diagnose` first to confirm runtime readiness.
+4. Use the structured tool flow instead of inventing a custom transport:
+   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`.
+5. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
+
+In short: start with diagnostics, keep workspace and profile explicit, and use the provided MCP tools as the integration contract.
 
 ### Future Direction
 
@@ -90,13 +176,13 @@ export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
 npm run dev
 ```
 
-Detailed startup, validation, and client wiring instructions live in `startup_processmd.md`.
+Detailed startup, validation, and client wiring instructions live in `STARTUP_PROCESS.md`.
 
 ## 中文
 
 ### 安装方式
 
-`golutra-mcp` 现在已经以 `golutra-mcp@0.1.0` 发布到 npm。
+`golutra-mcp` 现在已经以 `golutra-mcp` 这个包名发布到 npm。
 
 按普通 MCP Server 包安装即可：
 
@@ -104,10 +190,30 @@ Detailed startup, validation, and client wiring instructions live in `startup_pr
 npm install -g golutra-mcp
 ```
 
-建议配合已安装的 Golutra 桌面应用直接运行：
+建议配合已安装的 Golutra 桌面应用直接运行。
+
+macOS：
 
 ```bash
 export GOLUTRA_CLI_PATH=/Applications/Golutra.app/Contents/MacOS/golutra-cli
+export GOLUTRA_PROFILE=stable
+export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
+golutra-mcp
+```
+
+Windows PowerShell：
+
+```powershell
+$env:GOLUTRA_CLI_PATH="C:\Users\<you>\AppData\Local\Programs\Golutra\golutra-cli.exe"
+$env:GOLUTRA_PROFILE="stable"
+$env:GOLUTRA_WORKSPACE_PATH="C:\absolute\path\to\workspace"
+golutra-mcp
+```
+
+Linux：
+
+```bash
+export GOLUTRA_CLI_PATH=/usr/bin/golutra-cli
 export GOLUTRA_PROFILE=stable
 export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
 golutra-mcp
@@ -149,9 +255,40 @@ golutra-mcp
 这个 MCP Server 运行时依赖现有的 Golutra 本地运行环境：
 
 - 本机已安装 Golutra 桌面应用
-- 能访问到 `golutra-cli`，通常路径是 `/Applications/Golutra.app/Contents/MacOS/golutra-cli`
+- 能访问到 `golutra-cli`
 - 已知的有效工作区路径
 - 本地已启动目标 profile 的 Golutra 桌面应用，通常使用 `stable`
+
+按平台的默认 CLI 自动发现顺序：
+
+- macOS：`/Applications/Golutra.app/Contents/MacOS/golutra-cli`，然后 `~/Applications/Golutra.app/Contents/MacOS/golutra-cli`，最后回退到 `PATH` 里的 `golutra-cli`
+- Windows：`%LOCALAPPDATA%\Programs\Golutra\golutra-cli.exe`，然后 `%ProgramFiles%\Golutra\golutra-cli.exe`，再然后 `%ProgramFiles(x86)%\Golutra\golutra-cli.exe`，最后回退到 `PATH` 里的 `golutra-cli.exe`
+- Linux：`~/.local/bin/golutra-cli`，然后 `~/.cargo/bin/golutra-cli`、`/usr/local/bin/golutra-cli`、`/usr/bin/golutra-cli`、`/opt/Golutra/golutra-cli`、`/app/bin/golutra-cli`，最后回退到 `PATH` 里的 `golutra-cli`
+
+### 诊断能力
+
+需要排查问题时，可以优先用 `golutra-diagnose` 区分：
+
+- CLI 路径问题
+- workspacePath 缺失或非法
+- userId 缺失导致 app 探针跳过
+- 桌面应用未运行或 profile 不匹配
+- 普通 app 命令失败
+
+更完整的诊断输出字段和常见 `reasonCode` 说明见 `docs/GOLUTRA_DIAGNOSE_EXAMPLES.md`。
+
+### AI 看到这个项目后应该怎么做
+
+如果一个 AI 系统或支持 MCP 的宿主看到这个仓库，推荐按下面方式接入：
+
+1. 把 `golutra-mcp` 当作本地 `stdio` MCP Server 启动，不要把它当成 HTTP 服务。
+2. 提供 `GOLUTRA_CLI_PATH`、`GOLUTRA_PROFILE`，通常还需要提供 `GOLUTRA_WORKSPACE_PATH`。
+3. 先调用 `golutra-get-context` 或 `golutra-diagnose`，确认运行时上下文和联通状态。
+4. 按现有工具面走标准调用链路，不要自造传输协议：
+   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`。
+5. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
+
+一句话概括：先诊断，再显式设置 workspace/profile，然后把 README 里提供的 MCP tools 当作正式集成契约来用。
 
 ### 后续规划
 
@@ -178,12 +315,14 @@ export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
 npm run dev
 ```
 
-更完整的启动、验证与客户端接入说明见 `startup_processmd.md`。
+更完整的启动、验证与客户端接入说明见 `STARTUP_PROCESS.md`。
 
 ## Documentation
 
 - Startup, installation, validation, and MCP client wiring:
-  [startup_processmd.md](./startup_processmd.md)
+  [STARTUP_PROCESS.md](./STARTUP_PROCESS.md)
+- Diagnostic output examples and reason codes:
+  [docs/GOLUTRA_DIAGNOSE_EXAMPLES.md](./docs/GOLUTRA_DIAGNOSE_EXAMPLES.md)
 - Contribution guide:
   [CONTRIBUTING.md](./CONTRIBUTING.md)
 - Security policy:

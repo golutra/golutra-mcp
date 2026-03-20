@@ -23,6 +23,23 @@ function buildSkillsArgs(profile, options) {
 function buildSkillValidateArgs(profile, skillPath) {
     return [...buildProfileArgs(profile), "skill-validate", skillPath];
 }
+function normalizeMentionIds(mentionIds) {
+    const uniqueMentionIds = new Set();
+    for (const mentionId of mentionIds) {
+        const normalizedId = mentionId.trim();
+        if (!normalizedId) {
+            continue;
+        }
+        if (normalizedId.toLowerCase() === "all") {
+            throw new Error("mentionIds does not allow all");
+        }
+        uniqueMentionIds.add(normalizedId);
+    }
+    if (uniqueMentionIds.size === 0) {
+        throw new Error("mentionIds is required");
+    }
+    return [...uniqueMentionIds];
+}
 export class GolutraCliGateway {
     runner;
     constructor(runner) {
@@ -68,6 +85,7 @@ export class GolutraCliGateway {
         return this.executeStructured(payload, runtimeContext);
     }
     async sendMessage(runtimeContext, input) {
+        const mentionIds = normalizeMentionIds(input.mentionIds);
         return this.executeStructured({
             type: "chat.send",
             payload: {
@@ -75,7 +93,7 @@ export class GolutraCliGateway {
                 conversationId: input.conversationId,
                 senderId: input.senderId,
                 text: input.text,
-                mentionIds: input.mentionIds
+                mentionIds
             }
         }, runtimeContext);
     }
@@ -127,5 +145,5 @@ export class GolutraCliGateway {
         });
     }
 }
-export { buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs };
+export { buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, normalizeMentionIds };
 //# sourceMappingURL=golutra-client.js.map

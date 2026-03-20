@@ -1,4 +1,4 @@
-# startup_processmd
+# STARTUP_PROCESS
 
 This document contains the setup, startup, build, validation, local integration steps, and the detailed operational notes previously kept in `README.md`.
 
@@ -43,6 +43,9 @@ This repository focuses on protocol translation, context management, diagnostics
 - `golutra-set-context` updates defaults for later tool calls
 - `golutra-reset-context` restores defaults from the process environment used at startup
 - `golutra-diagnose` verifies `golutra-cli` reachability and, when both `workspacePath` and `userId` are available, probes app connectivity with `chat.conversations.list`
+- `golutra-diagnose` now returns layered checks for `cliPath`, `cliCommand`, `workspace`, `userId`, and `appConnection`
+- `golutra-diagnose` also returns `summary.status` (`ok`, `partial`, `error`), `reasonCodes`, and `nextSteps`
+- Detailed output examples and common `reasonCode` values live in `docs/GOLUTRA_DIAGNOSE_EXAMPLES.md`
 
 ### Current Limitations
 
@@ -76,7 +79,7 @@ It still needs more real-world validation across MCP hosts, operating systems, a
 ## Environment Variables
 
 - `GOLUTRA_CLI_PATH`
-  Default: auto-discover the macOS app-bundled CLI when available, otherwise `golutra-cli`
+  Default: auto-discover a platform-specific `golutra-cli` install when available, otherwise fall back to the platform command name from `PATH`
 - `GOLUTRA_PROFILE`
   Optional Golutra runtime profile: `dev`, `canary`, or `stable`
 - `GOLUTRA_WORKSPACE_PATH`
@@ -85,6 +88,12 @@ It still needs more real-world validation across MCP hosts, operating systems, a
   Default: `30000`
 
 Use [.env.example](./.env.example) as the minimal local template.
+
+Default CLI discovery order:
+
+- macOS: `/Applications/Golutra.app/Contents/MacOS/golutra-cli`, `~/Applications/Golutra.app/Contents/MacOS/golutra-cli`, `golutra-cli`
+- Windows: `%LOCALAPPDATA%\Programs\Golutra\golutra-cli.exe`, `%ProgramFiles%\Golutra\golutra-cli.exe`, `%ProgramFiles(x86)%\Golutra\golutra-cli.exe`, `golutra-cli.exe`
+- Linux: `~/.local/bin/golutra-cli`, `~/.cargo/bin/golutra-cli`, `/usr/local/bin/golutra-cli`, `/usr/bin/golutra-cli`, `/opt/Golutra/golutra-cli`, `/app/bin/golutra-cli`, `golutra-cli`
 
 ## Install Dependencies
 
@@ -101,6 +110,75 @@ npm install -g golutra-mcp
 ```
 
 Then configure your MCP client to launch `golutra-mcp` directly.
+
+Typical launch examples by platform:
+
+macOS:
+
+```bash
+export GOLUTRA_CLI_PATH=/Applications/Golutra.app/Contents/MacOS/golutra-cli
+export GOLUTRA_PROFILE=stable
+export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
+golutra-mcp
+```
+
+Windows PowerShell:
+
+```powershell
+$env:GOLUTRA_CLI_PATH="C:\Users\<you>\AppData\Local\Programs\Golutra\golutra-cli.exe"
+$env:GOLUTRA_PROFILE="stable"
+$env:GOLUTRA_WORKSPACE_PATH="C:\absolute\path\to\workspace"
+golutra-mcp
+```
+
+Linux:
+
+```bash
+export GOLUTRA_CLI_PATH=/usr/bin/golutra-cli
+export GOLUTRA_PROFILE=stable
+export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
+golutra-mcp
+```
+
+## Quick Verification After Install
+
+Use this sequence when you want to confirm that the published package and the local Golutra runtime are wired correctly.
+
+1. Confirm the package is visible from npm:
+
+```bash
+npm view golutra-mcp version
+```
+
+2. Confirm the binary can start with your local Golutra runtime settings:
+
+macOS/Linux:
+
+```bash
+export GOLUTRA_CLI_PATH=/absolute/path/to/golutra-cli
+export GOLUTRA_PROFILE=stable
+export GOLUTRA_WORKSPACE_PATH=/absolute/path/to/workspace
+golutra-mcp
+```
+
+Windows PowerShell:
+
+```powershell
+$env:GOLUTRA_CLI_PATH="C:\absolute\path\to\golutra-cli.exe"
+$env:GOLUTRA_PROFILE="stable"
+$env:GOLUTRA_WORKSPACE_PATH="C:\absolute\path\to\workspace"
+golutra-mcp
+```
+
+3. If your MCP host can call tools immediately, run `golutra-get-context` or `golutra-diagnose`.
+
+What to expect:
+
+- `golutra-get-context` should return the resolved `cliPath`, `profile`, `workspacePath`, and `timeoutMs`
+- `golutra-diagnose` should report `checks.cliPath.ok = true` and `checks.cliCommand.ok = true`
+- If you also provide a valid workspace `userId`, `golutra-diagnose` should attempt the app-backed `chat.conversations.list` probe
+
+If installation succeeds but runtime access still fails, use `golutra-diagnose` first and then compare the output with `docs/GOLUTRA_DIAGNOSE_EXAMPLES.md`.
 
 ## Local Development
 
@@ -187,6 +265,43 @@ npm pack --dry-run
 
 `prepack` is configured to build the project before npm packaging.
 
+## Publish To npm
+
+Use this flow for a normal public npm release:
+
+1. Confirm you are in the repository root and that checks pass:
+
+```bash
+cd /path/to/golutra-mcp
+npm run check
+npm pack
+```
+
+2. Confirm your npm CLI session is authenticated:
+
+```bash
+npm whoami
+```
+
+3. Publish the package:
+
+```bash
+npm publish
+```
+
+4. Verify the published result:
+
+```bash
+npm view golutra-mcp version
+npm view golutra-mcp
+```
+
+Release notes:
+
+- If `npm publish` reports that the version already exists, bump `package.json` to the next version and publish again
+- If npm requires browser or OTP confirmation, complete that flow and wait for the CLI to print `+ golutra-mcp@<version>`
+- `npm pack` creates a local `.tgz` artifact in the repository root; this is useful for pre-publish inspection or private file distribution
+
 ## Self-Hosted E2E CI
 
 The repository includes a dedicated GitHub Actions workflow for real MCP smoke tests on a macOS self-hosted runner:
@@ -205,7 +320,7 @@ Recommended runner prerequisites:
 Repository variables:
 
 - `GOLUTRA_E2E_WORKSPACE_PATH`: required unless provided as a workflow input
-- `GOLUTRA_E2E_CLI_PATH`: optional, defaults to `/Applications/Golutra.app/Contents/MacOS/golutra-cli`
+- `GOLUTRA_E2E_CLI_PATH`: optional, defaults to the same platform-specific discovery rules as runtime startup; macOS runners commonly use `/Applications/Golutra.app/Contents/MacOS/golutra-cli`
 - `GOLUTRA_E2E_PROFILE`: optional, defaults to `stable`
 - `GOLUTRA_E2E_USER_ID`: required only when the workflow is run with `app_probe=true`
 

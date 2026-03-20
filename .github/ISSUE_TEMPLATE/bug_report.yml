@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible defect in mcp-golutra
+description: Report a reproducible defect in golutra-mcp
 title: "[Bug] "
 labels:
   - bug
@@ -12,8 +12,8 @@ body:
     id: version
     attributes:
       label: Version
-      description: Which mcp-golutra version are you using?
-      placeholder: 0.1.0
+      description: Which golutra-mcp version are you using?
+      placeholder: 0.1.x
     validations:
       required: true
   - type: textarea

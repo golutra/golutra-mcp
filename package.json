@@ -1,6 +1,6 @@
 {
   "name": "golutra-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Model Context Protocol server for Golutra via golutra-cli.",
   "type": "module",
   "private": false,
@@ -22,10 +22,12 @@
     ".": "./dist/index.js"
   },
   "files": [
+    "assets",
     "dist",
+    "docs",
     ".env.example",
     "README.md",
-    "startup_processmd.md",
+    "STARTUP_PROCESS.md",
     "LICENSE",
     "CHANGELOG.md"
   ],

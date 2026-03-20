@@ -6,10 +6,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { NodeCliJsonRunner } from "./lib/cli-runner.js";
 import { ContextStore, createInitialContext } from "./lib/context.js";
 import { GolutraCliGateway } from "./lib/golutra-client.js";
+import { readPackageMetadata } from "./lib/package-metadata.js";
 import { registerTools } from "./lib/toolkit.js";
 
-const SERVER_NAME = "golutra-mcp";
-const SERVER_VERSION = "0.1.0";
+const { name: SERVER_NAME, version: SERVER_VERSION } = readPackageMetadata();
 
 async function main(): Promise<void> {
   const server = new McpServer({

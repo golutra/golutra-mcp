@@ -7,6 +7,7 @@ declare function buildSkillsArgs(profile: RuntimeContextSnapshot["profile"], opt
     workspacePath?: string | undefined;
 }): string[];
 declare function buildSkillValidateArgs(profile: RuntimeContextSnapshot["profile"], skillPath: string): string[];
+declare function normalizeMentionIds(mentionIds: string[]): string[];
 export declare class GolutraCliGateway {
     private readonly runner;
     constructor(runner: CliJsonRunner);
@@ -51,4 +52,4 @@ export declare class GolutraCliGateway {
     getSkill(runtimeContext: RuntimeContextSnapshot, skillName: string): Promise<Record<string, unknown>>;
     validateSkill(runtimeContext: RuntimeContextSnapshot, skillPath: string): Promise<SkillValidationResult>;
 }
-export { buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs };
+export { buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, normalizeMentionIds };

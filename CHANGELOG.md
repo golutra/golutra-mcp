@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
+## [Unreleased]
+
+## [0.1.1] - 2026-03-21
+
+### Changed
+
+- Synced `scripts/e2e-smoke.mjs` with the layered `golutra-diagnose` output so self-hosted smoke tests validate the current diagnostic contract
+- Expanded the basic GitHub Actions check workflow to run on Linux, macOS, and Windows so platform-specific regressions surface earlier
+- Included `docs/` in the npm publish file list so packaged users can open the referenced diagnostic example document locally
+- Renamed `startup_processmd.md` to `STARTUP_PROCESS.md` and updated repository links to use a stable public-facing document name
+- Removed stale `mcp-golutra` wording from the bug report template so issue reports match the published package name
+- Stopped hardcoding the MCP server runtime version in source scripts and now read it from `package.json`
+
 ## [0.1.0] - 2026-03-17
 
 ### Added
@@ -14,7 +27,7 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 - `golutra-reset-context` and `golutra-diagnose` for runtime troubleshooting
 - ESLint, TypeScript, and Vitest based quality gates
 - CI workflow, contribution guide, security policy, and code of conduct
-- Dedicated `startup_processmd.md` for setup/start/build/validation flow
+- Dedicated `STARTUP_PROCESS.md` for setup/start/build/validation flow
 
 ### Changed
 
@@ -27,6 +40,6 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 - Started tracking the built `dist/` output so GitHub source archives also include runnable server files instead of documentation only
 - Switched the user-facing default profile examples from `dev` to `stable` so published usage aligns with the release app instead of development builds
 - Reworked `README.md` into a project-introduction document focused on purpose, architecture, tool surface, and design boundaries
-- Moved startup, environment, and local development instructions out of `README.md` into `startup_processmd.md`
+- Moved startup, environment, and local development instructions out of `README.md` into `STARTUP_PROCESS.md`
 - Replaced `README.md` again with a bilingual project-homepage version that explains what the project is, what it is today, and the future direction in English and Chinese
-- Moved the remaining reference and operational material from `README.md` into `startup_processmd.md`
+- Moved the remaining reference and operational material from `README.md` into `STARTUP_PROCESS.md`

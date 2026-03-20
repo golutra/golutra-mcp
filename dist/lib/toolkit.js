@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildSkippedAppProbe, classifyAppProbeFailure, classifyCliProbeFailure, inspectCliPath, inspectUserId, inspectWorkspacePath, mergeNextSteps, summarizeDiagnosis } from "./diagnostics.js";
 import { findProjectSkillByName, readProjectSkillDocument } from "./project-skills.js";
 import { buildToolError, buildToolSuccess } from "./tool-results.js";
 const optionalWorkspacePath = z.string().trim().min(1).optional();
@@ -6,6 +7,12 @@ const optionalCliPath = z.string().trim().min(1).optional();
 const optionalProfile = z.enum(["dev", "canary", "stable"]).optional();
 const optionalTimeout = z.number().int().positive().max(300_000).optional();
 const optionalConversationId = z.string().trim().min(1).optional();
+const mentionIdsSchema = z
+    .array(z.string().trim().min(1))
+    .min(1)
+    .refine((mentionIds) => mentionIds.every((mentionId) => mentionId.trim().toLowerCase() !== "all"), {
+    message: "mentionIds does not allow all"
+});
 const roadmapTaskSchema = z.object({
     id: z.number().int().positive(),
     number: z.string().trim().optional(),
@@ -17,6 +24,11 @@ const roadmapSchema = z.object({
     objective: z.string(),
     tasks: z.array(roadmapTaskSchema)
 });
+function toDiagnosisRecord(checks) {
+    return {
+        ...checks
+    };
+}
 export function registerTools(server, contextStore, gateway) {
     server.registerTool("golutra-get-context", {
         title: "Get Golutra MCP context",
@@ -56,77 +68,138 @@ export function registerTools(server, contextStore, gateway) {
         }
     }, async (input) => {
         const runtimeContext = contextStore.resolveCommandContext(input);
-        const diagnosis = {
-            context: runtimeContext,
-            checks: {
-                cli: {
-                    ok: false
-                },
-                app: {
-                    ok: false,
-                    skipped: true
-                }
+        const checks = {
+            cliPath: inspectCliPath(runtimeContext.cliPath),
+            cliCommand: {
+                ok: false,
+                skipped: true
+            },
+            workspace: {
+                ok: false,
+                skipped: true
+            },
+            userId: {
+                ok: false,
+                skipped: true
+            },
+            appConnection: {
+                ok: false,
+                skipped: true
             }
         };
-        try {
-            const skills = await gateway.listSkills(runtimeContext, {});
-            diagnosis.checks = {
-                ...diagnosis.checks,
-                cli: {
-                    ok: true,
-                    builtInSkillNames: Object.keys(skills.skills ?? {})
-                }
+        const nextStepGroups = [];
+        if (!checks.cliPath.ok) {
+            checks.cliCommand = {
+                ok: false,
+                skipped: true,
+                reasonCode: "APP_PROBE_SKIPPED",
+                message: "CLI command probe was skipped because the configured golutra-cli path is not available."
             };
-        }
-        catch (error) {
-            diagnosis.checks = {
-                ...diagnosis.checks,
-                cli: {
-                    ok: false,
-                    error: buildToolError(error).structuredContent
-                }
+            checks.workspace = inspectWorkspacePath(runtimeContext.workspacePath);
+            checks.userId = inspectUserId(input.userId);
+            checks.appConnection = buildSkippedAppProbe("APP_PROBE_SKIPPED", "App-backed diagnostic probe was skipped because the CLI binary could not be located.");
+            nextStepGroups.push([
+                "Set GOLUTRA_CLI_PATH to a valid golutra-cli binary path, or install golutra-cli on PATH."
+            ]);
+            const diagnosis = {
+                context: runtimeContext,
+                checks,
+                summary: summarizeDiagnosis(toDiagnosisRecord(checks)),
+                nextSteps: mergeNextSteps(nextStepGroups)
             };
             return buildToolSuccess("Golutra diagnosis completed.", diagnosis);
         }
-        const workspacePath = runtimeContext.workspacePath;
-        if (!workspacePath || !input.userId) {
-            diagnosis.checks = {
-                ...diagnosis.checks,
-                app: {
-                    ok: false,
-                    skipped: true,
-                    reason: "workspacePath and userId are both required for an app-backed chat.conversations.list probe."
-                }
+        try {
+            const skills = await gateway.listSkills(runtimeContext, {});
+            checks.cliCommand = {
+                ok: true,
+                skipped: false,
+                command: "skills",
+                builtInSkillNames: Object.keys(skills.skills ?? {}),
+                projectSkillsCount: Array.isArray(skills.projectSkills)
+                    ? skills.projectSkills.length
+                    : 0
+            };
+        }
+        catch (error) {
+            const cliProbe = classifyCliProbeFailure(error);
+            checks.cliCommand = {
+                ...cliProbe
+            };
+            checks.workspace = inspectWorkspacePath(runtimeContext.workspacePath);
+            checks.userId = inspectUserId(input.userId);
+            checks.appConnection = buildSkippedAppProbe("APP_PROBE_SKIPPED", "App-backed diagnostic probe was skipped because the CLI-level probe did not succeed.");
+            nextStepGroups.push(cliProbe.nextSteps);
+            const diagnosis = {
+                context: runtimeContext,
+                checks,
+                summary: summarizeDiagnosis(toDiagnosisRecord(checks)),
+                nextSteps: mergeNextSteps(nextStepGroups)
+            };
+            return buildToolSuccess("Golutra diagnosis completed.", diagnosis);
+        }
+        checks.workspace = inspectWorkspacePath(runtimeContext.workspacePath);
+        if (!checks.workspace.ok) {
+            nextStepGroups.push([
+                "Pass workspacePath to golutra-diagnose, or set a default with golutra-set-context before retrying.",
+                "Verify that the workspace path exists locally and points to the intended Golutra workspace folder."
+            ]);
+            checks.userId = inspectUserId(input.userId);
+            checks.appConnection = buildSkippedAppProbe("APP_PROBE_SKIPPED", "App-backed diagnostic probe was skipped because workspacePath is missing or invalid.");
+            const diagnosis = {
+                context: runtimeContext,
+                checks,
+                summary: summarizeDiagnosis(toDiagnosisRecord(checks)),
+                nextSteps: mergeNextSteps(nextStepGroups)
+            };
+            return buildToolSuccess("Golutra diagnosis completed.", diagnosis);
+        }
+        checks.userId = inspectUserId(input.userId);
+        if (!checks.userId.ok) {
+            nextStepGroups.push([
+                "Pass a workspace member userId to golutra-diagnose to run the app-backed chat probe."
+            ]);
+            checks.appConnection = buildSkippedAppProbe("APP_PROBE_SKIPPED", "App-backed diagnostic probe was skipped because userId was not provided.");
+            const diagnosis = {
+                context: runtimeContext,
+                checks,
+                summary: summarizeDiagnosis(toDiagnosisRecord(checks)),
+                nextSteps: mergeNextSteps(nextStepGroups)
             };
             return buildToolSuccess("Golutra diagnosis completed.", diagnosis);
         }
         try {
             const conversations = await gateway.listConversations(runtimeContext, {
-                workspacePath,
+                workspacePath: runtimeContext.workspacePath,
                 userId: input.userId
             });
-            diagnosis.checks = {
-                ...diagnosis.checks,
-                app: {
-                    ok: true,
-                    skipped: false,
-                    channelCount: Array.isArray(conversations.channels)
-                        ? conversations.channels.length
-                        : 0,
-                    defaultChannelId: conversations.defaultChannelId
-                }
+            checks.appConnection = {
+                ok: true,
+                skipped: false,
+                probe: "chat.conversations.list",
+                channelCount: Array.isArray(conversations.channels)
+                    ? conversations.channels.length
+                    : 0,
+                directCount: Array.isArray(conversations.directs)
+                    ? conversations.directs.length
+                    : 0,
+                defaultChannelId: conversations.defaultChannelId
             };
         }
         catch (error) {
-            diagnosis.checks = {
-                ...diagnosis.checks,
-                app: {
-                    ok: false,
-                    skipped: false,
-                    error: buildToolError(error).structuredContent
-                }
+            const appProbe = classifyAppProbeFailure(error, runtimeContext);
+            checks.appConnection = {
+                ...appProbe,
+                probe: "chat.conversations.list"
             };
+            nextStepGroups.push(appProbe.nextSteps);
         }
+        const diagnosis = {
+            context: runtimeContext,
+            checks,
+            summary: summarizeDiagnosis(toDiagnosisRecord(checks)),
+            nextSteps: mergeNextSteps(nextStepGroups)
+        };
         return buildToolSuccess("Golutra diagnosis completed.", diagnosis);
     });
     server.registerTool("golutra-list-conversations", {
@@ -184,7 +257,7 @@ export function registerTools(server, contextStore, gateway) {
             conversationId: z.string().trim().min(1),
             senderId: z.string().trim().min(1),
             text: z.string().trim().min(1),
-            mentionIds: z.array(z.string().trim().min(1)).min(1),
+            mentionIds: mentionIdsSchema,
             workspacePath: optionalWorkspacePath,
             profile: optionalProfile
         }

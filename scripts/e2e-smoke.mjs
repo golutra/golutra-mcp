@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import process from "node:process";
+import { URL } from "node:url";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -15,6 +17,22 @@ function requireEnv(name) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
+}
+
+function readPackageVersion() {
+  const packageJsonPath = new URL("../package.json", import.meta.url);
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+
+  if (
+    !packageJson ||
+    typeof packageJson !== "object" ||
+    typeof packageJson.version !== "string" ||
+    !packageJson.version.trim()
+  ) {
+    throw new Error("package.json is missing a valid version");
+  }
+
+  return packageJson.version;
 }
 
 function buildSetContextArgs() {
@@ -44,6 +62,7 @@ function ensureToolSuccess(name, result) {
 
 async function main() {
   const repoRoot = process.cwd();
+  const packageVersion = readPackageVersion();
   const contextArgs = buildSetContextArgs();
   const userId = readEnv("GOLUTRA_E2E_USER_ID");
   const transport = new StdioClientTransport({
@@ -60,7 +79,7 @@ async function main() {
   const client = new Client(
     {
       name: "golutra-mcp-e2e-smoke",
-      version: "0.1.0"
+      version: packageVersion
     },
     {
       capabilities: {}
@@ -124,11 +143,14 @@ async function main() {
         }
       })
     );
-    assert.equal(diagnose.checks?.cli?.ok, true);
+    assert.equal(diagnose.checks?.cliPath?.ok, true);
+    assert.equal(diagnose.checks?.cliCommand?.ok, true);
 
     if (userId) {
-      assert.equal(diagnose.checks?.app?.skipped, false);
-      assert.equal(diagnose.checks?.app?.ok, true);
+      assert.equal(diagnose.checks?.workspace?.ok, true);
+      assert.equal(diagnose.checks?.userId?.ok, true);
+      assert.equal(diagnose.checks?.appConnection?.skipped, false);
+      assert.equal(diagnose.checks?.appConnection?.ok, true);
     }
 
     process.stdout.write(
@@ -140,8 +162,10 @@ async function main() {
           projectSkillCount: Array.isArray(listProjectSkills.projectSkills)
             ? listProjectSkills.projectSkills.length
             : 0,
+          diagnosisSummary: diagnose.summary,
           appProbeEnabled: Boolean(userId),
-          appProbeOk: userId ? diagnose.checks?.app?.ok === true : undefined
+          appProbeOk:
+            userId ? diagnose.checks?.appConnection?.ok === true : undefined
         },
         null,
         2

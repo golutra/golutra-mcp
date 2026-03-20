@@ -51,7 +51,40 @@ describe("ContextStore", () => {
     expect(cliPath).toBe("/Applications/Golutra.app/Contents/MacOS/golutra-cli");
   });
 
-  it("falls back to golutra-cli when no auto-discovered candidate exists", () => {
+  it("auto-discovers the default Windows CLI install path when present", () => {
+    const cliPath = resolveDefaultCliPath(
+      {
+        LOCALAPPDATA: "C:\\Users\\tester\\AppData\\Local"
+      },
+      {
+        platform: "win32",
+        homeDirectory: "C:\\Users\\tester",
+        pathExists: (candidatePath) =>
+          candidatePath ===
+          "C:\\Users\\tester\\AppData\\Local\\Programs\\Golutra\\golutra-cli.exe"
+      }
+    );
+
+    expect(cliPath).toBe(
+      "C:\\Users\\tester\\AppData\\Local\\Programs\\Golutra\\golutra-cli.exe"
+    );
+  });
+
+  it("auto-discovers the default Linux CLI install path when present", () => {
+    const cliPath = resolveDefaultCliPath(
+      {},
+      {
+        platform: "linux",
+        homeDirectory: "/home/tester",
+        pathExists: (candidatePath) =>
+          candidatePath === "/home/tester/.local/bin/golutra-cli"
+      }
+    );
+
+    expect(cliPath).toBe("/home/tester/.local/bin/golutra-cli");
+  });
+
+  it("falls back to golutra-cli on Unix-like platforms when no auto-discovered candidate exists", () => {
     const cliPath = resolveDefaultCliPath(
       {},
       {
@@ -62,6 +95,19 @@ describe("ContextStore", () => {
     );
 
     expect(cliPath).toBe("golutra-cli");
+  });
+
+  it("falls back to golutra-cli.exe on Windows when no auto-discovered candidate exists", () => {
+    const cliPath = resolveDefaultCliPath(
+      {},
+      {
+        platform: "win32",
+        homeDirectory: "C:\\Users\\tester",
+        pathExists: () => false
+      }
+    );
+
+    expect(cliPath).toBe("golutra-cli.exe");
   });
 
   it("requires workspacePath when neither input nor stored context provides one", () => {

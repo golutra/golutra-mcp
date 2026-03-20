@@ -11,11 +11,26 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 300_000;
-const DEFAULT_CLI_COMMAND = "golutra-cli";
 
 function normalizeNonEmptyString(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function uniqueNonEmptyPaths(candidatePaths: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const candidatePath of candidatePaths) {
+    const normalizedPath = candidatePath.trim();
+    if (!normalizedPath || seen.has(normalizedPath)) {
+      continue;
+    }
+    seen.add(normalizedPath);
+    result.push(normalizedPath);
+  }
+
+  return result;
 }
 
 function normalizeTimeout(value: number | string | undefined): number {
@@ -42,14 +57,25 @@ function normalizeProfile(value: string | undefined): GolutraProfile | undefined
   throw new Error(`Unsupported Golutra profile: ${trimmed}`);
 }
 
+function getDefaultCliCommand(platform: NodeJS.Platform): string {
+  return platform === "win32" ? "golutra-cli.exe" : "golutra-cli";
+}
+
+function getPathModule(platform: NodeJS.Platform): typeof path {
+  return platform === "win32" ? path.win32 : path.posix;
+}
+
 function getDefaultCliCandidates(
+  env: NodeJS.ProcessEnv,
   platform: NodeJS.Platform,
   homeDirectory: string
 ): string[] {
+  const pathModule = getPathModule(platform);
+
   if (platform === "darwin") {
-    return [
+    return uniqueNonEmptyPaths([
       "/Applications/Golutra.app/Contents/MacOS/golutra-cli",
-      path.join(
+      pathModule.join(
         homeDirectory,
         "Applications",
         "Golutra.app",
@@ -57,11 +83,43 @@ function getDefaultCliCandidates(
         "MacOS",
         "golutra-cli"
       ),
-      DEFAULT_CLI_COMMAND
-    ];
+      getDefaultCliCommand(platform)
+    ]);
   }
 
-  return [DEFAULT_CLI_COMMAND];
+  if (platform === "win32") {
+    const localAppData =
+      normalizeNonEmptyString(env.LOCALAPPDATA) ??
+      pathModule.join(homeDirectory, "AppData", "Local");
+    const programFiles = normalizeNonEmptyString(env.ProgramFiles);
+    const programFilesX86 = normalizeNonEmptyString(env["ProgramFiles(x86)"]);
+    const cliName = getDefaultCliCommand(platform);
+
+    return uniqueNonEmptyPaths([
+      pathModule.join(localAppData, "Programs", "Golutra", cliName),
+      ...(programFiles ? [pathModule.join(programFiles, "Golutra", cliName)] : []),
+      ...(programFilesX86
+        ? [pathModule.join(programFilesX86, "Golutra", cliName)]
+        : []),
+      cliName
+    ]);
+  }
+
+  if (platform === "linux") {
+    const cliName = getDefaultCliCommand(platform);
+
+    return uniqueNonEmptyPaths([
+      pathModule.join(homeDirectory, ".local", "bin", cliName),
+      pathModule.join(homeDirectory, ".cargo", "bin", cliName),
+      "/usr/local/bin/golutra-cli",
+      "/usr/bin/golutra-cli",
+      "/opt/Golutra/golutra-cli",
+      "/app/bin/golutra-cli",
+      cliName
+    ]);
+  }
+
+  return [getDefaultCliCommand(platform)];
 }
 
 export function resolveDefaultCliPath(
@@ -80,12 +138,15 @@ export function resolveDefaultCliPath(
   const platform = options.platform ?? process.platform;
   const homeDirectory = options.homeDirectory ?? homedir();
   const pathExists = options.pathExists ?? existsSync;
-  const candidates = getDefaultCliCandidates(platform, homeDirectory);
+  const candidates = getDefaultCliCandidates(env, platform, homeDirectory);
+  const fallbackCommand = getDefaultCliCommand(platform);
+  const pathModule = getPathModule(platform);
 
   return (
     candidates.find(
-      (candidatePath) => path.isAbsolute(candidatePath) && pathExists(candidatePath)
-    ) ?? DEFAULT_CLI_COMMAND
+      (candidatePath) =>
+        pathModule.isAbsolute(candidatePath) && pathExists(candidatePath)
+    ) ?? fallbackCommand
   );
 }
 

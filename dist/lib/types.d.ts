@@ -46,14 +46,30 @@ export interface SkillValidationResult {
     message?: string | undefined;
     errors?: unknown[] | undefined;
 }
+export interface ChatConversationMember {
+    id: string;
+    roleType: string;
+    terminalStatus?: string | undefined;
+}
+export interface ChatConversationRecord {
+    id: string;
+    type: string;
+    members: ChatConversationMember[];
+}
 export interface ChatConversationsListData {
-    channels?: unknown[] | undefined;
-    directs?: unknown[] | undefined;
-    conversations?: unknown[] | undefined;
+    channels?: ChatConversationRecord[] | undefined;
+    directs?: ChatConversationRecord[] | undefined;
+    conversations?: ChatConversationRecord[] | undefined;
     defaultChannelId?: string | undefined;
 }
+export interface ChatMessageRecord {
+    messageId?: string | undefined;
+    senderId?: string | undefined;
+    createdAt: number;
+    text: string;
+}
 export interface ChatMessagesListData {
-    messages?: unknown[] | undefined;
+    messages?: ChatMessageRecord[] | undefined;
 }
 export interface ChatSendData {
     messageId?: string | undefined;
