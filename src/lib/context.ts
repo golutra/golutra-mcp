@@ -150,13 +150,35 @@ export function resolveDefaultCliPath(
   );
 }
 
+/**
+ * Walk up from `startDir` looking for a directory that contains `.golutra/`.
+ * Returns the first match, or `undefined` if the filesystem root is reached.
+ */
+export function discoverWorkspacePath(
+  startDir: string,
+  pathExists: (p: string) => boolean = existsSync
+): string | undefined {
+  let current = path.resolve(startDir);
+  const root = path.parse(current).root;
+  while (true) {
+    if (pathExists(path.join(current, ".golutra"))) {
+      return current;
+    }
+    if (current === root) {
+      return undefined;
+    }
+    current = path.dirname(current);
+  }
+}
+
 export function createInitialContext(
   env: NodeJS.ProcessEnv
 ): RuntimeContextSnapshot {
+  const explicit = normalizeNonEmptyString(env.GOLUTRA_WORKSPACE_PATH);
   return {
     cliPath: resolveDefaultCliPath(env),
     profile: normalizeProfile(env.GOLUTRA_PROFILE),
-    workspacePath: normalizeNonEmptyString(env.GOLUTRA_WORKSPACE_PATH),
+    workspacePath: explicit ?? discoverWorkspacePath(process.cwd()),
     timeoutMs: normalizeTimeout(env.GOLUTRA_COMMAND_TIMEOUT_MS)
   };
 }
@@ -197,13 +219,18 @@ export class ContextStore {
   }
 
   resolveCommandContext(nextValues: CommandContextInput = {}): RuntimeContextSnapshot {
+    const explicit = normalizeNonEmptyString(nextValues.workspacePath);
+    const cached = this.context.workspacePath;
+    // Prefer explicit > valid cached > CWD discovery
+    let workspacePath = explicit ?? cached;
+    if (workspacePath && !existsSync(path.join(workspacePath, ".golutra"))) {
+      workspacePath = explicit ?? discoverWorkspacePath(process.cwd()) ?? cached;
+    }
     return {
       cliPath:
         normalizeNonEmptyString(nextValues.cliPath) ?? this.context.cliPath,
       profile: nextValues.profile ?? this.context.profile,
-      workspacePath:
-        normalizeNonEmptyString(nextValues.workspacePath) ??
-        this.context.workspacePath,
+      workspacePath,
       timeoutMs:
         typeof nextValues.timeoutMs === "number"
           ? normalizeTimeout(nextValues.timeoutMs)
