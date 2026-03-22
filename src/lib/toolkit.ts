@@ -25,6 +25,10 @@ const optionalCliPath = z.string().trim().min(1).optional();
 const optionalProfile = z.enum(["dev", "canary", "stable"]).optional();
 const optionalTimeout = z.number().int().positive().max(300_000).optional();
 const optionalConversationId = z.string().trim().min(1).optional();
+const workspaceOverrideNote =
+  "When workspacePath is passed here, it only applies to this call and does not update the stored default workspace.";
+const persistedContextNote =
+  "Use golutra-set-context only when you want to persist new defaults for later tool calls.";
 const mentionIdsSchema = z
   .array(z.string().trim().min(1))
   .min(1)
@@ -83,7 +87,7 @@ export function registerTools(
     {
       title: "Set Golutra MCP context",
       description:
-        "Update the default golutra-cli path, profile, workspace path, or timeout for later tool calls.",
+        "Persist new default golutra-cli path, profile, workspace path, or timeout values for later tool calls. Per-tool workspacePath input remains a one-time override.",
       inputSchema: {
         cliPath: optionalCliPath,
         profile: optionalProfile,
@@ -120,7 +124,7 @@ export function registerTools(
     {
       title: "Diagnose Golutra connectivity",
       description:
-        "Check whether golutra-cli is callable and, when workspacePath and userId are available, whether the running Golutra app accepts workspace-scoped commands.",
+        `Check whether golutra-cli is callable and, when workspacePath and userId are available, whether the running Golutra app accepts workspace-scoped commands. ${workspaceOverrideNote} ${persistedContextNote}`,
       inputSchema: {
         userId: z.string().trim().min(1).optional(),
         workspacePath: optionalWorkspacePath,
@@ -292,7 +296,7 @@ export function registerTools(
     {
       title: "List Golutra conversations",
       description:
-        "List channel and direct-message conversations visible to a workspace member.",
+        `List channel and direct-message conversations visible to a workspace member. ${workspaceOverrideNote}`,
       inputSchema: {
         userId: z.string().trim().min(1),
         workspacePath: optionalWorkspacePath,
@@ -319,7 +323,7 @@ export function registerTools(
     {
       title: "List Golutra messages",
       description:
-        "Read recent messages from a Golutra channel or direct conversation.",
+        `Read recent messages from a Golutra channel or direct conversation. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: z.string().trim().min(1),
         workspacePath: optionalWorkspacePath,
@@ -350,7 +354,7 @@ export function registerTools(
     {
       title: "Send a Golutra message",
       description:
-        "Send a Golutra chat message through golutra-cli using a structured chat.send payload.",
+        `Send a Golutra chat message through golutra-cli using a structured chat.send payload. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: z.string().trim().min(1),
         senderId: z.string().trim().min(1),
@@ -383,7 +387,7 @@ export function registerTools(
     {
       title: "Read Golutra roadmap",
       description:
-        "Read the workspace roadmap or a conversation-specific roadmap through golutra-cli.",
+        `Read the workspace roadmap or a conversation-specific roadmap through golutra-cli. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: optionalConversationId,
         workspacePath: optionalWorkspacePath,
@@ -410,7 +414,7 @@ export function registerTools(
     {
       title: "Update Golutra roadmap",
       description:
-        "Replace the current workspace or conversation roadmap through golutra-cli.",
+        `Replace the current workspace or conversation roadmap through golutra-cli. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: optionalConversationId,
         workspacePath: optionalWorkspacePath,
@@ -441,7 +445,7 @@ export function registerTools(
     {
       title: "List Golutra CLI skills",
       description:
-        "List built-in golutra-cli skills and optionally append workspace project skills.",
+        `List built-in golutra-cli skills and optionally append workspace project skills. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
@@ -509,7 +513,7 @@ export function registerTools(
     {
       title: "List Golutra project skills",
       description:
-        "List only workspace-resolved project skills discovered from .golutra/skills.",
+        `List only workspace-resolved project skills discovered from .golutra/skills. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
@@ -536,7 +540,7 @@ export function registerTools(
     {
       title: "Read a Golutra project skill document",
       description:
-        "Discover a workspace project skill by name and return its SKILL.md content.",
+        `Discover a workspace project skill by name and return its SKILL.md content. ${workspaceOverrideNote}`,
       inputSchema: {
         skillName: z.string().trim().min(1),
         workspacePath: optionalWorkspacePath,

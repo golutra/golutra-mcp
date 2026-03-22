@@ -70,6 +70,52 @@ describe("registerTools", () => {
     });
   });
 
+  it("uses a per-call workspace override without mutating stored defaults", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace-default",
+      timeoutMs: 30_000
+    });
+    const listConversations = vi.fn().mockResolvedValue({
+      channels: [],
+      directs: []
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        listConversations
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-list-conversations");
+    expect(handler).toBeTypeOf("function");
+
+    await handler?.({
+      userId: "01USER",
+      workspacePath: "/workspace-once"
+    });
+
+    expect(listConversations).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace-once",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace-once",
+        userId: "01USER"
+      }
+    );
+    expect(contextStore.getSnapshot()).toEqual({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace-default",
+      timeoutMs: 30_000
+    });
+  });
+
   it("reports a missing explicit CLI path before running the CLI probe", async () => {
     const server = new FakeMcpServer();
     const contextStore = new ContextStore({

@@ -122,29 +122,26 @@ export class ContextStore {
         this.context = { ...this.initialContext };
         return this.getSnapshot();
     }
-    update(nextValues) {
-        const nextContext = {
-            cliPath: normalizeNonEmptyString(nextValues.cliPath) ?? this.context.cliPath,
-            profile: nextValues.profile ?? this.context.profile,
+    mergeContext(baseContext, nextValues) {
+        return {
+            cliPath: normalizeNonEmptyString(nextValues.cliPath) ?? baseContext.cliPath,
+            profile: nextValues.profile ?? baseContext.profile,
             workspacePath: normalizeNonEmptyString(nextValues.workspacePath) ??
-                this.context.workspacePath,
+                baseContext.workspacePath,
             timeoutMs: typeof nextValues.timeoutMs === "number"
                 ? normalizeTimeout(nextValues.timeoutMs)
-                : this.context.timeoutMs
+                : baseContext.timeoutMs
         };
+    }
+    update(nextValues) {
+        // `golutra-set-context` 走这里，表示显式持久化更新默认上下文。
+        const nextContext = this.mergeContext(this.context, nextValues);
         this.context = nextContext;
         return this.getSnapshot();
     }
     resolveCommandContext(nextValues = {}) {
-        return {
-            cliPath: normalizeNonEmptyString(nextValues.cliPath) ?? this.context.cliPath,
-            profile: nextValues.profile ?? this.context.profile,
-            workspacePath: normalizeNonEmptyString(nextValues.workspacePath) ??
-                this.context.workspacePath,
-            timeoutMs: typeof nextValues.timeoutMs === "number"
-                ? normalizeTimeout(nextValues.timeoutMs)
-                : this.context.timeoutMs
-        };
+        // 普通业务 tool 走这里时，`workspacePath` 只是本次调用覆盖，不会写回默认缓存。
+        return this.mergeContext(this.context, nextValues);
     }
     requireWorkspacePath(nextValues = {}) {
         const workspacePath = this.resolveCommandContext(nextValues).workspacePath;

@@ -29,6 +29,7 @@
   <a href="https://www.npmjs.com/package/golutra-mcp">npm</a> ·
   <a href="https://github.com/golutra/golutra-mcp">GitHub</a> ·
   <a href="./STARTUP_PROCESS.md">Startup Process</a> ·
+  <a href="./docs/WORKSPACE_CONTEXT_EXAMPLES.md">Workspace Examples</a> ·
   <a href="./docs/GOLUTRA_DIAGNOSE_EXAMPLES.md">Diagnose Examples</a>
 </p>
 
@@ -148,8 +149,11 @@ If an AI system or MCP-compatible host sees this repository, the intended usage 
 4. Use the structured tool flow instead of inventing a custom transport:
    `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`.
 5. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
+6. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
 
 In short: start with diagnostics, keep workspace and profile explicit, and use the provided MCP tools as the integration contract.
+
+For concrete workspace switching and chat flow examples, see `docs/WORKSPACE_CONTEXT_EXAMPLES.md`.
 
 ### Future Direction
 
@@ -287,8 +291,11 @@ golutra-mcp
 4. 按现有工具面走标准调用链路，不要自造传输协议：
    `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`。
 5. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
+6. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。
 
 一句话概括：先诊断，再显式设置 workspace/profile，然后把 README 里提供的 MCP tools 当作正式集成契约来用。
+
+如果你想看“工作区切换”和“真实聊天链路”的具体调用示例，直接看 `docs/WORKSPACE_CONTEXT_EXAMPLES.md`。
 
 ### 后续规划
 
@@ -321,6 +328,8 @@ npm run dev
 
 - Startup, installation, validation, and MCP client wiring:
   [STARTUP_PROCESS.md](./STARTUP_PROCESS.md)
+- Workspace override and stored default examples:
+  [docs/WORKSPACE_CONTEXT_EXAMPLES.md](./docs/WORKSPACE_CONTEXT_EXAMPLES.md)
 - Diagnostic output examples and reason codes:
   [docs/GOLUTRA_DIAGNOSE_EXAMPLES.md](./docs/GOLUTRA_DIAGNOSE_EXAMPLES.md)
 - Contribution guide:

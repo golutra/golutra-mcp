@@ -140,6 +140,48 @@ describe("ContextStore", () => {
     });
   });
 
+  it("does not persist a one-time workspacePath override", () => {
+    const store = new ContextStore({
+      cliPath: "golutra-cli",
+      profile: "stable",
+      workspacePath: "/base",
+      timeoutMs: 30_000
+    });
+
+    const resolved = store.resolveCommandContext({
+      workspacePath: "/override"
+    });
+
+    expect(resolved.workspacePath).toBe("/override");
+    expect(store.getSnapshot()).toEqual({
+      cliPath: "golutra-cli",
+      profile: "stable",
+      workspacePath: "/base",
+      timeoutMs: 30_000
+    });
+  });
+
+  it("persists workspacePath when defaults are explicitly updated", () => {
+    const store = new ContextStore({
+      cliPath: "golutra-cli",
+      profile: "stable",
+      workspacePath: "/base",
+      timeoutMs: 30_000
+    });
+
+    const snapshot = store.update({
+      workspacePath: "/changed"
+    });
+
+    expect(snapshot).toEqual({
+      cliPath: "golutra-cli",
+      profile: "stable",
+      workspacePath: "/changed",
+      timeoutMs: 30_000
+    });
+    expect(store.requireWorkspacePath()).toBe("/changed");
+  });
+
   it("resets to the initial startup context", () => {
     const store = new ContextStore({
       cliPath: "golutra-cli",
