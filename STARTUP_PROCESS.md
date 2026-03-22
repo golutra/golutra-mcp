@@ -47,6 +47,15 @@ This repository focuses on protocol translation, context management, diagnostics
 - `golutra-diagnose` also returns `summary.status` (`ok`, `partial`, `error`), `reasonCodes`, and `nextSteps`
 - Detailed output examples and common `reasonCode` values live in `docs/GOLUTRA_DIAGNOSE_EXAMPLES.md`
 
+### Workspace Override Contract
+
+- Passing `workspacePath` in a tool call is a one-time override for that call only
+- `golutra-set-context` is the explicit operation that persists a new default `workspacePath` for later calls
+- If an AI host switches workspaces frequently, prefer passing `workspacePath` per call instead of mutating shared defaults
+- 如果只是某一次调用临时切换工作区，直接在该次 tool 输入里传 `workspacePath`
+- 如果希望后续调用默认都切到新工作区，再使用 `golutra-set-context`
+- Concrete request sequences are documented in `docs/WORKSPACE_CONTEXT_EXAMPLES.md`
+
 ### Current Limitations
 
 - `workspacePath` must be provided either in the tool call or through `golutra-set-context`

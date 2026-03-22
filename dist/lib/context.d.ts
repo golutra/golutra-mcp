@@ -11,6 +11,7 @@ export declare class ContextStore {
     constructor(initialContext: RuntimeContextSnapshot);
     getSnapshot(): RuntimeContextSnapshot;
     reset(): RuntimeContextSnapshot;
+    private mergeContext;
     update(nextValues: CommandContextInput): RuntimeContextSnapshot;
     resolveCommandContext(nextValues?: CommandContextInput): RuntimeContextSnapshot;
     requireWorkspacePath(nextValues?: CommandContextInput): string;

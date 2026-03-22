@@ -63,6 +63,8 @@ Typical output:
 - `userId`: whether an app-backed probe has enough identity input
 - `appConnection`: whether `chat.conversations.list` can reach the running Golutra desktop app
 
+If you pass `workspacePath` directly to `golutra-diagnose`, `context.workspacePath` reflects that one call only and does not mutate the stored default context.
+
 ### Common Reason Codes
 
 - `CLI_PATH_NOT_FOUND`: `GOLUTRA_CLI_PATH` points to a file that does not exist
@@ -153,6 +155,8 @@ Typical output:
 - `checks.appConnection`：`chat.conversations.list` 是否能打通桌面应用
 - `summary`：整体诊断状态
 - `nextSteps`：下一步建议动作
+
+如果你是在这次 `golutra-diagnose` 调用里临时传入 `workspacePath`，那么 `context.workspacePath` 反映的是本次调用实际使用的值，不会回写默认上下文。
 
 ### 常见 Reason Code
 
