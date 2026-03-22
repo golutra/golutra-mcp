@@ -22,10 +22,6 @@ None.
 
 None.
 
-## Co-author Disclosure
-
-None.
-
 ## Summary
 
 - 
@@ -40,3 +36,7 @@ None.
 ## Notes
 
 - 
+
+## Co-author Disclosure
+
+None.
