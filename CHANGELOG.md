@@ -6,6 +6,16 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-03-22
+
+### Changed
+
+- Clarified the runtime `workspacePath` contract so per-tool `workspacePath` input is treated as a one-time override, while `golutra-set-context` remains the only way to persist a new default workspace
+- Added regression tests to lock the workspace context behavior at both `ContextStore` level and workspace-aware tool level
+- Expanded README and `STARTUP_PROCESS.md` so AI hosts can understand the recommended runtime flow for diagnostics, workspace switching, and normal tool execution
+- Added `docs/WORKSPACE_CONTEXT_EXAMPLES.md` with concrete examples for stored defaults, one-off workspace overrides, recommended tool order, and a real chat flow
+- Updated the diagnostic examples to explain that a `workspacePath` passed to `golutra-diagnose` affects only that call and does not mutate the stored default context
+
 ## [0.1.1] - 2026-03-21
 
 ### Changed

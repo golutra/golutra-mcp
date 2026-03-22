@@ -1,6 +1,6 @@
 {
   "name": "golutra-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Model Context Protocol server for Golutra via golutra-cli.",
   "type": "module",
   "private": false,
