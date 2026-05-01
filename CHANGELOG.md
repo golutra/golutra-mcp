@@ -6,6 +6,20 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-01
+
+### Added
+
+- Added focused MCP tools for Golutra team creation, member configuration, conversations, prompt settings, automation, skills, agents, templates, store commands, and generic structured command fallback.
+- Added `golutra-read-cli-guide` so MCP hosts can read the current Golutra CLI team, collaboration, prompt, role, asset, and roadmap guidance directly.
+- Added runtime target fallback for app-backed tools. MCP now tries `stable:desktop`, `stable:server`, `dev:desktop`, then `dev:server` by default, while still allowing explicit `profile`, `hostKind`, or `targetOrder` overrides.
+- Added explicit confirmation fields for destructive or restart operations such as member deletion, conversation deletion, and member restart.
+
+### Changed
+
+- Kept `golutra-cli` as the stable integration boundary and injects `GOLUTRA_CLI_HOST_KIND` only for each spawned CLI child process.
+- Updated documentation, environment examples, generated `dist/`, and tests for the expanded tool surface and runtime selection behavior.
+
 ## [0.1.2] - 2026-03-22
 
 ### Changed
