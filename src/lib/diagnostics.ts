@@ -148,7 +148,7 @@ export function inspectUserId(userId: string | undefined): DiagnosisCheck & {
       skipped: true,
       reasonCode: "USER_ID_MISSING",
       message:
-        "userId is required for the app-backed chat.conversations.list diagnostic probe."
+        "userId was not provided. It is optional for the default project.members.config.list diagnostic probe."
     };
   }
 

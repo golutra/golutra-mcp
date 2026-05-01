@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  buildCliGuideArgs,
   buildSkillValidateArgs,
   GolutraCliGateway,
   normalizeMentionIds
@@ -60,6 +61,78 @@ describe("GolutraCliGateway", () => {
         mentionIds: ["01TARGET"]
       }
     });
+  });
+
+  it("builds a project.members.config.list command", async () => {
+    const executeJson = vi.fn<
+      CliJsonRunner["executeJson"]
+    >().mockResolvedValue({
+      ok: true,
+      result: {
+        status: "ok",
+        data: {
+          members: [],
+          conversationSummary: {
+            channels: [],
+            directs: []
+          }
+        }
+      }
+    } satisfies StructuredCommandEnvelope);
+
+    const gateway = new GolutraCliGateway({
+      executeJson
+    });
+
+    await gateway.listTeamConfig(
+      {
+        cliPath: "golutra-cli",
+        timeoutMs: 10_000
+      },
+      {
+        workspacePath: "/workspace"
+      }
+    );
+
+    const request = executeJson.mock.calls[0]?.[0] as CliCommandRequest;
+    expect(JSON.parse(request.args[2] ?? "{}")).toEqual({
+      type: "project.members.config.list",
+      payload: {
+        workspacePath: "/workspace"
+      }
+    });
+  });
+
+  it("builds CLI guide commands", async () => {
+    const executeText = vi.fn().mockResolvedValue("team guide");
+    const gateway = new GolutraCliGateway({
+      executeJson: vi.fn(),
+      executeText
+    });
+
+    const result = await gateway.readCliGuide(
+      {
+        cliPath: "golutra-cli",
+        profile: "dev",
+        timeoutMs: 10_000
+      },
+      "team"
+    );
+
+    expect(result).toEqual({
+      guide: "team",
+      text: "team guide"
+    });
+    expect(executeText).toHaveBeenCalledWith({
+      cliPath: "golutra-cli",
+      args: ["--profile", "dev", "team"],
+      timeoutMs: 10_000
+    });
+    expect(buildCliGuideArgs("stable", "help")).toEqual([
+      "--profile",
+      "stable",
+      "--help"
+    ]);
   });
 
   it("normalizes mentionIds before building chat.send", async () => {

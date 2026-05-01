@@ -48,19 +48,35 @@ export interface SkillValidationResult {
 }
 export interface ChatConversationMember {
     id: string;
+    name?: string | undefined;
     roleType: string;
     terminalStatus?: string | undefined;
+    agent?: unknown;
+    skills?: unknown[] | undefined;
 }
 export interface ChatConversationRecord {
     id: string;
     type: string;
-    members: ChatConversationMember[];
+    customName?: string | undefined;
+    memberIds: string[];
 }
 export interface ChatConversationsListData {
-    channels?: ChatConversationRecord[] | undefined;
-    directs?: ChatConversationRecord[] | undefined;
+    membersById?: Record<string, ChatConversationMember> | undefined;
     conversations?: ChatConversationRecord[] | undefined;
     defaultChannelId?: string | undefined;
+}
+export interface ProjectMembersConfigListData {
+    workspaceId?: string | undefined;
+    workspacePath?: string | undefined;
+    members?: unknown[] | undefined;
+    conversationSummary?: {
+        defaultChannelId?: string | undefined;
+        channels?: ChatConversationRecord[] | undefined;
+        directs?: ChatConversationRecord[] | undefined;
+        warning?: string | undefined;
+    } | undefined;
+    source?: string | undefined;
+    warning?: string | null | undefined;
 }
 export interface ChatMessageRecord {
     messageId?: string | undefined;
@@ -83,50 +99,7 @@ export interface RoadmapResultData {
     storage?: string | undefined;
     warning?: string | undefined;
 }
-export type StructuredCommand = {
-    type: "chat.send";
-    payload: {
-        workspacePath: string;
-        conversationId: string;
-        senderId: string;
-        text: string;
-        mentionIds: string[];
-    };
-} | {
-    type: "chat.conversations.list";
-    payload: {
-        workspacePath: string;
-        userId: string;
-    };
-} | {
-    type: "chat.messages.list";
-    payload: {
-        workspacePath: string;
-        conversationId: string;
-        limit?: number | undefined;
-        beforeId?: string | undefined;
-    };
-} | {
-    type: "roadmap.read";
-    payload: {
-        workspacePath: string;
-        conversationId?: string | undefined;
-    };
-} | {
-    type: "roadmap.update";
-    payload: {
-        workspacePath: string;
-        conversationId?: string | undefined;
-        readOnly?: boolean | undefined;
-        roadmap: {
-            objective: string;
-            tasks: Array<{
-                id: number;
-                number?: string | undefined;
-                title: string;
-                status: "pending" | "in-progress" | "done";
-                pinned?: boolean | undefined;
-            }>;
-        };
-    };
-};
+export interface StructuredCommand {
+    type: string;
+    payload: Record<string, unknown>;
+}

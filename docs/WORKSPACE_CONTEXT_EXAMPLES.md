@@ -174,8 +174,7 @@ Typical input:
 
 ```json
 {
-  "workspacePath": "/workspace-a",
-  "userId": "01USER"
+  "workspacePath": "/workspace-a"
 }
 ```
 
@@ -188,7 +187,20 @@ Purpose:
 - 验证 `workspacePath` 是否有效
 - 验证当前 profile 对应的 Golutra 桌面应用是否可达
 
-### Step 3: Call Workspace Tools
+### Step 3: Read The Team Overview
+
+Tool:
+
+`golutra-read-team-config`
+
+Purpose:
+
+- Read member config summaries
+- Read `conversationSummary` for default channel, channels, and direct conversations
+- 读取成员配置摘要
+- 读取 `conversationSummary`，包含默认频道、频道和私聊
+
+### Step 4: Call Workspace Tools
 
 After diagnosis passes, continue with normal business tools.
 
@@ -196,13 +208,22 @@ After diagnosis passes, continue with normal business tools.
 
 Typical examples:
 
+- `golutra-read-team-config`
+- `golutra-list-terminal-defaults`
+- `golutra-create-terminals`
+- `golutra-create-channel`
+- `golutra-ensure-direct`
+- `golutra-read-prompt-tokens`
+- `golutra-update-member-prompt-settings`
+- `golutra-update-member-binding`
+- `golutra-update-member-automation`
 - `golutra-list-conversations`
 - `golutra-list-messages`
 - `golutra-send-message`
 - `golutra-read-roadmap`
 - `golutra-update-roadmap`
 
-### Step 4: Decide Whether The Workspace Switch Is Temporary
+### Step 5: Decide Whether The Workspace Switch Is Temporary
 
 - If this workspace change is only for one request, keep passing `workspacePath` on that request
 - If later calls should all use the new workspace, call `golutra-set-context`

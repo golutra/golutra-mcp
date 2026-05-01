@@ -85,7 +85,7 @@ golutra-mcp
 
 `golutra-mcp` is a Model Context Protocol server that exposes Golutra collaboration capabilities to MCP-compatible hosts through `golutra-cli`.
 
-It is not a replacement for Golutra itself, and it does not re-implement Golutra's local IPC protocol. Instead, it acts as a thin integration layer that lets external MCP clients reuse Golutra's existing chat, roadmap, and skill flows through a smaller and more stable boundary.
+It is not a replacement for Golutra itself, and it does not re-implement Golutra's local IPC protocol. Instead, it acts as a thin integration layer that lets external MCP clients reuse Golutra's existing team-building, chat, roadmap, prompt, automation, and skill flows through a smaller and more stable boundary.
 
 ### What It Is Today
 
@@ -95,7 +95,7 @@ Today it already provides:
 
 - a local `stdio` MCP server
 - a command bridge based on `golutra-cli`
-- tool coverage for chat, roadmap, context, diagnostics, and skill discovery
+- tool coverage for CLI guides, team config, terminal creation, member deletion, conversation topology, chat, roadmap, prompt settings, member bindings, automation, agents, templates, store commands, context, diagnostics, and skill discovery
 - skill validation and direct project `SKILL.md` reading for local Golutra skill workflows
 - an open-source project skeleton with contribution, security, CI, and release-facing metadata
 
@@ -133,7 +133,7 @@ Use `golutra-diagnose` when you need to separate:
 
 - CLI path problems
 - missing or invalid workspace paths
-- missing user identity for app-backed probes
+- workspace team config and app-backed command failures
 - app-not-running or profile-mismatch failures
 - generic app command failures
 
@@ -146,12 +146,15 @@ If an AI system or MCP-compatible host sees this repository, the intended usage 
 1. Launch `golutra-mcp` as a local `stdio` MCP server, not as an HTTP service.
 2. Provide `GOLUTRA_CLI_PATH`, `GOLUTRA_PROFILE`, and usually `GOLUTRA_WORKSPACE_PATH`.
 3. Call `golutra-get-context` or `golutra-diagnose` first to confirm runtime readiness.
-4. Use the structured tool flow instead of inventing a custom transport:
+4. Read the relevant guide before acting, for example `golutra-read-cli-guide` with `guide: "team"` before team creation.
+5. Use the structured team-building flow instead of inventing a custom transport:
+   `golutra-read-team-config` -> `golutra-list-terminal-defaults` / `golutra-create-terminals` / conversation tools / prompt tools / automation tools.
+6. For runtime collaboration after the team exists, use:
    `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`.
-5. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
-6. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
+7. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
+8. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
 
-In short: start with diagnostics, keep workspace and profile explicit, and use the provided MCP tools as the integration contract.
+In short: start with diagnostics, read `golutra-read-team-config` for the workspace shape, keep workspace/profile explicit, and use the provided MCP tools as the integration contract.
 
 For concrete workspace switching and chat flow examples, see `docs/WORKSPACE_CONTEXT_EXAMPLES.md`.
 
@@ -227,7 +230,7 @@ golutra-mcp
 
 `golutra-mcp` 是一个把 Golutra 能力暴露给 MCP 客户端的桥接层，底层通过 `golutra-cli` 与 Golutra 桌面端联通。
 
-它不是 Golutra 本体，也不是对 Golutra 本地 IPC 协议的重写。这个仓库的职责，是把外部 MCP Host 和 Golutra 之间的集成边界收敛成一层更小、更稳定、更容易复用的适配层。
+它不是 Golutra 本体，也不是对 Golutra 本地 IPC 协议的重写。这个仓库的职责，是把外部 MCP Host 和 Golutra 之间的集成边界收敛成一层更小、更稳定、更容易复用的适配层，覆盖团队创建、聊天、路线图、提示词、自动化和技能等主要工作流。
 
 ### 当前阶段是什么
 
@@ -237,7 +240,7 @@ golutra-mcp
 
 - 基于 `stdio` 的 MCP Server 形态
 - 基于 `golutra-cli` 的命令桥接
-- chat、roadmap、context、diagnostics、skills 这些基础工具面
+- CLI 指南、team config、terminal 创建、成员删除、频道/私聊拓扑、chat、roadmap、prompt settings、member bindings、automation、agents、templates、store commands、context、diagnostics、skills 等工具面
 - 技能校验与项目 `SKILL.md` 直接读取能力，能覆盖本地技能开发链路
 - 基本完整的开源项目骨架，包括贡献规范、安全策略、CI 和发布元数据
 
@@ -275,7 +278,7 @@ golutra-mcp
 
 - CLI 路径问题
 - workspacePath 缺失或非法
-- userId 缺失导致 app 探针跳过
+- 工作区团队配置读取与 app 侧命令失败
 - 桌面应用未运行或 profile 不匹配
 - 普通 app 命令失败
 
@@ -288,12 +291,15 @@ golutra-mcp
 1. 把 `golutra-mcp` 当作本地 `stdio` MCP Server 启动，不要把它当成 HTTP 服务。
 2. 提供 `GOLUTRA_CLI_PATH`、`GOLUTRA_PROFILE`，通常还需要提供 `GOLUTRA_WORKSPACE_PATH`。
 3. 先调用 `golutra-get-context` 或 `golutra-diagnose`，确认运行时上下文和联通状态。
-4. 按现有工具面走标准调用链路，不要自造传输协议：
+4. 执行前先读对应指南，例如创建团队前用 `golutra-read-cli-guide` 读取 `guide: "team"`。
+5. 创建团队时按标准工具链路走，不要自造传输协议：
+   `golutra-read-team-config` -> `golutra-list-terminal-defaults` / `golutra-create-terminals` / 会话拓扑工具 / 提示词工具 / 自动化工具。
+6. 团队创建完成后的运行期协作使用：
    `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`。
-5. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
-6. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。
+7. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
+8. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。
 
-一句话概括：先诊断，再显式设置 workspace/profile，然后把 README 里提供的 MCP tools 当作正式集成契约来用。
+一句话概括：先诊断，再用 `golutra-read-team-config` 读取工作区形态，保持 workspace/profile 显式，然后把 README 里提供的 MCP tools 当作正式集成契约来用。
 
 如果你想看“工作区切换”和“真实聊天链路”的具体调用示例，直接看 `docs/WORKSPACE_CONTEXT_EXAMPLES.md`。
 

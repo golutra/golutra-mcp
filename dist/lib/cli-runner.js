@@ -20,7 +20,7 @@ function extractErrorMessage(parsed) {
     return undefined;
 }
 export class NodeCliJsonRunner {
-    async executeJson(request) {
+    async executeRaw(request) {
         const stdoutChunks = [];
         const stderrChunks = [];
         const child = spawn(request.cliPath, request.args, {
@@ -31,7 +31,7 @@ export class NodeCliJsonRunner {
         child.stderr.setEncoding("utf8");
         child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
         child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
-        const completed = await new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 child.kill("SIGTERM");
                 reject(new CliExecutionError({
@@ -63,6 +63,25 @@ export class NodeCliJsonRunner {
                 });
             });
         });
+    }
+    async executeText(request) {
+        const completed = await this.executeRaw(request);
+        if (completed.exitCode !== 0) {
+            throw new CliExecutionError({
+                message: completed.stderr.trim() ||
+                    completed.stdout.trim() ||
+                    `golutra-cli exited with code ${completed.exitCode}`,
+                cliPath: request.cliPath,
+                args: request.args,
+                exitCode: completed.exitCode,
+                stdout: completed.stdout,
+                stderr: completed.stderr
+            });
+        }
+        return completed.stdout.trimEnd();
+    }
+    async executeJson(request) {
+        const completed = await this.executeRaw(request);
         const trimmedStdout = completed.stdout.trim();
         if (!trimmedStdout) {
             throw new CliExecutionError({

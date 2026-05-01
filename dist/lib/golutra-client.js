@@ -1,6 +1,27 @@
 import { CliExecutionError } from "./errors.js";
+const GOLUTRA_CLI_GUIDES = [
+    "help",
+    "team",
+    "collaboration",
+    "store",
+    "chat",
+    "terminals",
+    "prompt",
+    "agents",
+    "templates",
+    "roadmap",
+    "member",
+    "assistant",
+    "supervisor"
+];
 function buildProfileArgs(profile) {
     return profile ? ["--profile", profile] : [];
+}
+function buildCliGuideArgs(profile, guide) {
+    return [
+        ...buildProfileArgs(profile),
+        ...(guide === "help" ? ["--help"] : [guide])
+    ];
 }
 function buildStructuredRunArgs(profile, command) {
     return [
@@ -45,7 +66,21 @@ export class GolutraCliGateway {
     constructor(runner) {
         this.runner = runner;
     }
-    async executeStructured(command, runtimeContext) {
+    async readCliGuide(runtimeContext, guide) {
+        if (!this.runner.executeText) {
+            throw new Error("CLI text execution is not available");
+        }
+        const text = await this.runner.executeText({
+            cliPath: runtimeContext.cliPath,
+            args: buildCliGuideArgs(runtimeContext.profile, guide),
+            timeoutMs: runtimeContext.timeoutMs
+        });
+        return {
+            guide,
+            text
+        };
+    }
+    async executeCommand(command, runtimeContext) {
         const response = await this.runner.executeJson({
             cliPath: runtimeContext.cliPath,
             args: buildStructuredRunArgs(runtimeContext.profile, command),
@@ -64,7 +99,7 @@ export class GolutraCliGateway {
         return (response.result?.data ?? {});
     }
     async listConversations(runtimeContext, input) {
-        return this.executeStructured({
+        return this.executeCommand({
             type: "chat.conversations.list",
             payload: {
                 workspacePath: input.workspacePath,
@@ -82,11 +117,11 @@ export class GolutraCliGateway {
                 ...(input.beforeId ? { beforeId: input.beforeId } : {})
             }
         };
-        return this.executeStructured(payload, runtimeContext);
+        return this.executeCommand(payload, runtimeContext);
     }
     async sendMessage(runtimeContext, input) {
         const mentionIds = normalizeMentionIds(input.mentionIds);
-        return this.executeStructured({
+        return this.executeCommand({
             type: "chat.send",
             payload: {
                 workspacePath: input.workspacePath,
@@ -105,7 +140,7 @@ export class GolutraCliGateway {
                 ...(input.conversationId ? { conversationId: input.conversationId } : {})
             }
         };
-        return this.executeStructured(payload, runtimeContext);
+        return this.executeCommand(payload, runtimeContext);
     }
     async updateRoadmap(runtimeContext, input) {
         const payload = {
@@ -117,7 +152,247 @@ export class GolutraCliGateway {
                 roadmap: input.roadmap
             }
         };
-        return this.executeStructured(payload, runtimeContext);
+        return this.executeCommand(payload, runtimeContext);
+    }
+    async listTeamConfig(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.members.config.list",
+            payload: {
+                workspacePath: input.workspacePath
+            }
+        }, runtimeContext);
+    }
+    async listTerminalDefaults(runtimeContext) {
+        return this.executeCommand({
+            type: "project.terminals.defaults.list",
+            payload: {}
+        }, runtimeContext);
+    }
+    async inviteTerminals(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "project.terminals.invite",
+            payload
+        }, runtimeContext);
+    }
+    async deleteMember(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.member.delete",
+            payload: {
+                workspacePath: input.workspacePath,
+                memberId: input.memberId
+            }
+        }, runtimeContext);
+    }
+    async createChannel(runtimeContext, input) {
+        return this.executeCommand({
+            type: "chat.channel.create",
+            payload: {
+                workspacePath: input.workspacePath,
+                userId: input.userId,
+                memberIds: input.memberIds,
+                ...(input.customName ? { customName: input.customName } : {})
+            }
+        }, runtimeContext);
+    }
+    async ensureDirect(runtimeContext, input) {
+        return this.executeCommand({
+            type: "chat.direct.ensure",
+            payload: {
+                workspacePath: input.workspacePath,
+                userId: input.userId,
+                targetId: input.targetId
+            }
+        }, runtimeContext);
+    }
+    async updateConversation(runtimeContext, input) {
+        return this.executeCommand({
+            type: "chat.conversation.update",
+            payload: {
+                workspacePath: input.workspacePath,
+                conversationId: input.conversationId,
+                ...(input.customName ? { customName: input.customName } : {}),
+                ...(input.memberIds ? { memberIds: input.memberIds } : {})
+            }
+        }, runtimeContext);
+    }
+    async deleteConversation(runtimeContext, input) {
+        return this.executeCommand({
+            type: "chat.conversation.delete",
+            payload: {
+                workspacePath: input.workspacePath,
+                conversationId: input.conversationId
+            }
+        }, runtimeContext);
+    }
+    async readPromptTokens(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.prompt-settings.tokens.read",
+            payload: {
+                workspacePath: input.workspacePath
+            }
+        }, runtimeContext);
+    }
+    async readPromptOptions(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "project.prompt-settings.options.read",
+            payload
+        }, runtimeContext);
+    }
+    async readProjectPromptSettings(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.prompt-settings.read",
+            payload: {
+                workspacePath: input.workspacePath,
+                roleType: input.roleType
+            }
+        }, runtimeContext);
+    }
+    async updateProjectPromptSettings(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "project.prompt-settings.update",
+            payload
+        }, runtimeContext);
+    }
+    async readMemberConfig(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.member.config.read",
+            payload: {
+                workspacePath: input.workspacePath,
+                memberId: input.memberId
+            }
+        }, runtimeContext);
+    }
+    async readMemberPromptSettings(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.member.prompt-settings.read",
+            payload: {
+                workspacePath: input.workspacePath,
+                memberId: input.memberId
+            }
+        }, runtimeContext);
+    }
+    async updateMemberPromptSettings(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "project.member.prompt-settings.update",
+            payload
+        }, runtimeContext);
+    }
+    async readMemberBinding(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.member.binding.read",
+            payload: {
+                workspacePath: input.workspacePath,
+                memberId: input.memberId
+            }
+        }, runtimeContext);
+    }
+    async updateMemberBinding(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "project.member.binding.update",
+            payload
+        }, runtimeContext);
+    }
+    async readMemberAutomation(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.member.automation.read",
+            payload: {
+                workspacePath: input.workspacePath,
+                memberId: input.memberId
+            }
+        }, runtimeContext);
+    }
+    async updateMemberAutomation(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "project.member.automation.update",
+            payload
+        }, runtimeContext);
+    }
+    async previewOnboardingPrompt(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "terminal.preview-onboarding-prompt",
+            payload
+        }, runtimeContext);
+    }
+    async restartMember(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "terminal.session.restart-member",
+            payload
+        }, runtimeContext);
+    }
+    async listAgentsRepository(runtimeContext) {
+        return this.executeCommand({
+            type: "agents.repository.list",
+            payload: {}
+        }, runtimeContext);
+    }
+    async createAgentRepositoryEntry(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "agents.repository.create",
+            payload
+        }, runtimeContext);
+    }
+    async inspectFriendTemplate(runtimeContext, input) {
+        return this.executeCommand({
+            type: "friend-template.inspect",
+            payload: {
+                filePath: input.filePath
+            }
+        }, runtimeContext);
+    }
+    async listFriendTemplateRepository(runtimeContext) {
+        return this.executeCommand({
+            type: "friend-template.repository.list",
+            payload: {}
+        }, runtimeContext);
+    }
+    async useFriendTemplateRepository(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "friend-template.repository.use",
+            payload
+        }, runtimeContext);
+    }
+    async listSkillsLibrary(runtimeContext) {
+        return this.executeCommand({
+            type: "skills.library.list",
+            payload: {}
+        }, runtimeContext);
+    }
+    async createSkillLibraryEntry(runtimeContext, payload) {
+        return this.executeCommand({
+            type: "skills.library.create",
+            payload
+        }, runtimeContext);
+    }
+    async importSkillLibraryEntries(runtimeContext, input) {
+        return this.executeCommand({
+            type: "skills.library.import",
+            payload: {
+                sourcePaths: input.sourcePaths
+            }
+        }, runtimeContext);
+    }
+    async listProjectSkills(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.skills.list",
+            payload: {
+                workspacePath: input.workspacePath
+            }
+        }, runtimeContext);
+    }
+    async linkProjectSkill(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.skills.link",
+            payload: {
+                workspacePath: input.workspacePath,
+                skillFolderName: input.skillFolderName
+            }
+        }, runtimeContext);
+    }
+    async executeStoreCommand(runtimeContext, commandType, payload) {
+        return this.executeCommand({
+            type: commandType,
+            payload
+        }, runtimeContext);
     }
     async listSkills(runtimeContext, input) {
         return this.runner.executeJson({
@@ -145,5 +420,5 @@ export class GolutraCliGateway {
         });
     }
 }
-export { buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, normalizeMentionIds };
+export { buildCliGuideArgs, buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, GOLUTRA_CLI_GUIDES, normalizeMentionIds };
 //# sourceMappingURL=golutra-client.js.map

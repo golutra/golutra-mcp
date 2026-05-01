@@ -168,14 +168,14 @@ describe("registerTools", () => {
         }
       }
     });
-    const listConversations = vi.fn();
+    const listTeamConfig = vi.fn();
 
     registerTools(
       server as never,
       contextStore,
       {
         listSkills,
-        listConversations
+        listTeamConfig
       } as never
     );
 
@@ -183,7 +183,7 @@ describe("registerTools", () => {
     const result = await handler?.({});
 
     expect(listSkills).toHaveBeenCalledTimes(1);
-    expect(listConversations).not.toHaveBeenCalled();
+    expect(listTeamConfig).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       structuredContent: {
         checks: {
@@ -221,7 +221,7 @@ describe("registerTools", () => {
         }
       }
     });
-    const listConversations = vi.fn().mockRejectedValue(
+    const listTeamConfig = vi.fn().mockRejectedValue(
       new CliExecutionError({
         message:
           "failed to connect golutra ipc for profile `stable`: /tmp/golutra-command.sock: No such file or directory",
@@ -236,7 +236,7 @@ describe("registerTools", () => {
       contextStore,
       {
         listSkills,
-        listConversations
+        listTeamConfig
       } as never
     );
 
@@ -251,12 +251,148 @@ describe("registerTools", () => {
           appConnection: {
             ok: false,
             reasonCode: "APP_NOT_RUNNING_OR_PROFILE_MISMATCH",
-            probe: "chat.conversations.list"
+            probe: "project.members.config.list"
           }
         },
         summary: {
           status: "error"
         }
+      }
+    });
+  });
+
+  it("exposes project members config as the team overview tool", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const listTeamConfig = vi.fn().mockResolvedValue({
+      members: [],
+      conversationSummary: {
+        channels: [],
+        directs: []
+      }
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        listTeamConfig
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-read-team-config");
+    const result = await handler?.({});
+
+    expect(listTeamConfig).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        conversationSummary: {
+          channels: [],
+          directs: []
+        }
+      }
+    });
+  });
+
+  it("exposes top-level CLI guides as readable text", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      profile: "dev",
+      timeoutMs: 30_000
+    });
+    const readCliGuide = vi.fn().mockResolvedValue({
+      guide: "team",
+      text: "golutra-cli team"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        readCliGuide
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-read-cli-guide");
+    const result = await handler?.({
+      guide: "team"
+    });
+
+    expect(readCliGuide).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        profile: "dev",
+        timeoutMs: 30_000
+      },
+      "team"
+    );
+    expect(result).toMatchObject({
+      content: [
+        {
+          type: "text",
+          text: "golutra-cli team"
+        }
+      ],
+      structuredContent: {
+        guide: "team",
+        text: "golutra-cli team"
+      }
+    });
+  });
+
+  it("requires memberName when deleting a project member", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const deleteMember = vi.fn().mockResolvedValue({
+      memberId: "01MEMBER"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        deleteMember
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-delete-member");
+    const result = await handler?.({
+      memberId: "01MEMBER",
+      memberName: "Backend"
+    });
+
+    expect(deleteMember).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace",
+        memberId: "01MEMBER"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        memberId: "01MEMBER"
       }
     });
   });

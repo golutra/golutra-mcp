@@ -5,6 +5,7 @@ import type { CliCommandRequest } from "./types.js";
 
 export interface CliJsonRunner {
   executeJson<T>(request: CliCommandRequest): Promise<T>;
+  executeText?(request: CliCommandRequest): Promise<string>;
 }
 
 function formatCommand(request: CliCommandRequest): string {
@@ -31,7 +32,11 @@ function extractErrorMessage(parsed: unknown): string | undefined {
 }
 
 export class NodeCliJsonRunner implements CliJsonRunner {
-  async executeJson<T>(request: CliCommandRequest): Promise<T> {
+  private async executeRaw(request: CliCommandRequest): Promise<{
+    exitCode: number | null;
+    stdout: string;
+    stderr: string;
+  }> {
     const stdoutChunks: string[] = [];
     const stderrChunks: string[] = [];
 
@@ -45,7 +50,7 @@ export class NodeCliJsonRunner implements CliJsonRunner {
     child.stdout.on("data", (chunk: string) => stdoutChunks.push(chunk));
     child.stderr.on("data", (chunk: string) => stderrChunks.push(chunk));
 
-    const completed = await new Promise<{
+    return new Promise<{
       exitCode: number | null;
       stdout: string;
       stderr: string;
@@ -87,6 +92,30 @@ export class NodeCliJsonRunner implements CliJsonRunner {
         });
       });
     });
+  }
+
+  async executeText(request: CliCommandRequest): Promise<string> {
+    const completed = await this.executeRaw(request);
+
+    if (completed.exitCode !== 0) {
+      throw new CliExecutionError({
+        message:
+          completed.stderr.trim() ||
+          completed.stdout.trim() ||
+          `golutra-cli exited with code ${completed.exitCode}`,
+        cliPath: request.cliPath,
+        args: request.args,
+        exitCode: completed.exitCode,
+        stdout: completed.stdout,
+        stderr: completed.stderr
+      });
+    }
+
+    return completed.stdout.trimEnd();
+  }
+
+  async executeJson<T>(request: CliCommandRequest): Promise<T> {
+    const completed = await this.executeRaw(request);
 
     const trimmedStdout = completed.stdout.trim();
     if (!trimmedStdout) {
