@@ -376,7 +376,9 @@ describe("registerTools", () => {
     const handler = server.tools.get("golutra-delete-member");
     const result = await handler?.({
       memberId: "01MEMBER",
-      memberName: "Backend"
+      memberName: "Backend",
+      confirmedMemberId: "01MEMBER",
+      confirmedMemberName: "Backend"
     });
 
     expect(deleteMember).toHaveBeenCalledWith(
@@ -388,6 +390,130 @@ describe("registerTools", () => {
       {
         workspacePath: "/workspace",
         memberId: "01MEMBER"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        memberId: "01MEMBER"
+      }
+    });
+  });
+
+  it("rejects destructive member deletion when confirmation mismatches", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const deleteMember = vi.fn();
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        deleteMember
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-delete-member");
+    const result = await handler?.({
+      memberId: "01MEMBER",
+      memberName: "Backend",
+      confirmedMemberId: "01OTHER",
+      confirmedMemberName: "Backend"
+    });
+
+    expect(deleteMember).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      isError: true,
+      structuredContent: {
+        message: "memberId confirmation mismatch"
+      }
+    });
+  });
+
+  it("requires conversation id confirmation before deleting a conversation", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const deleteConversation = vi.fn().mockResolvedValue({
+      conversationId: "01CONV"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        deleteConversation
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-delete-conversation");
+    const result = await handler?.({
+      conversationId: "01CONV",
+      confirmedConversationId: "01CONV"
+    });
+
+    expect(deleteConversation).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace",
+        conversationId: "01CONV"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        conversationId: "01CONV"
+      }
+    });
+  });
+
+  it("requires member confirmation before restarting a member terminal", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const restartMember = vi.fn().mockResolvedValue({
+      memberId: "01MEMBER"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        restartMember
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-restart-member");
+    const result = await handler?.({
+      memberId: "01MEMBER",
+      memberName: "Backend",
+      confirmedMemberId: "01MEMBER",
+      confirmedMemberName: "Backend",
+      launchReason: "prompt-reset"
+    });
+
+    expect(restartMember).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace",
+        memberId: "01MEMBER",
+        launchReason: "prompt-reset"
       }
     );
     expect(result).toMatchObject({

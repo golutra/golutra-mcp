@@ -1,20 +1,31 @@
 export declare const GOLUTRA_PROFILES: readonly ["dev", "canary", "stable"];
+export declare const GOLUTRA_HOST_KINDS: readonly ["desktop", "server"];
 export type GolutraProfile = (typeof GOLUTRA_PROFILES)[number];
+export type GolutraHostKind = (typeof GOLUTRA_HOST_KINDS)[number];
+export interface GolutraRuntimeTarget {
+    profile: GolutraProfile;
+    hostKind: GolutraHostKind;
+}
 export interface RuntimeContextSnapshot {
     cliPath: string;
     profile?: GolutraProfile | undefined;
+    hostKind?: GolutraHostKind | undefined;
+    targetOrder?: GolutraRuntimeTarget[] | undefined;
     workspacePath?: string | undefined;
     timeoutMs: number;
 }
 export interface CommandContextInput {
     cliPath?: string | undefined;
     profile?: GolutraProfile | undefined;
+    hostKind?: GolutraHostKind | undefined;
+    targetOrder?: GolutraRuntimeTarget[] | undefined;
     workspacePath?: string | undefined;
     timeoutMs?: number | undefined;
 }
 export interface CliCommandRequest {
     cliPath: string;
     args: string[];
+    env?: Record<string, string | undefined> | undefined;
     timeoutMs: number;
 }
 export interface StructuredCommandEnvelope {

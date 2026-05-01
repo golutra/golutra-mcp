@@ -14,6 +14,8 @@ declare function normalizeMentionIds(mentionIds: string[]): string[];
 export declare class GolutraCliGateway {
     private readonly runner;
     constructor(runner: CliJsonRunner);
+    private executeJsonWithRuntimeTargets;
+    private executeTextWithRuntimeTargets;
     readCliGuide(runtimeContext: RuntimeContextSnapshot, guide: GolutraCliGuide): Promise<{
         guide: GolutraCliGuide;
         text: string;

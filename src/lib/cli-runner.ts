@@ -41,7 +41,10 @@ export class NodeCliJsonRunner implements CliJsonRunner {
     const stderrChunks: string[] = [];
 
     const child = spawn(request.cliPath, request.args, {
-      env: process.env,
+      env: {
+        ...process.env,
+        ...request.env
+      },
       stdio: ["ignore", "pipe", "pipe"]
     });
 

@@ -119,7 +119,7 @@ To work correctly, the server still depends on the existing Golutra desktop runt
 - a locally installed Golutra desktop application
 - a reachable `golutra-cli` binary
 - a valid Golutra workspace path
-- the target Golutra desktop app profile running locally, usually `stable`
+- the target Golutra app runtime running locally. By default MCP tries `stable` desktop, `stable` server/web, `dev` desktop, then `dev` server/web.
 
 Default CLI discovery by platform:
 
@@ -144,7 +144,7 @@ Detailed diagnostic output fields and common `reasonCode` values are documented 
 If an AI system or MCP-compatible host sees this repository, the intended usage is:
 
 1. Launch `golutra-mcp` as a local `stdio` MCP server, not as an HTTP service.
-2. Provide `GOLUTRA_CLI_PATH`, `GOLUTRA_PROFILE`, and usually `GOLUTRA_WORKSPACE_PATH`.
+2. Provide `GOLUTRA_CLI_PATH` and usually `GOLUTRA_WORKSPACE_PATH`. Leave profile/host unset to use the default target order, or set `GOLUTRA_PROFILE`, `GOLUTRA_CLI_HOST_KIND`, or `GOLUTRA_TARGET_ORDER` when you need a specific runtime.
 3. Call `golutra-get-context` or `golutra-diagnose` first to confirm runtime readiness.
 4. Read the relevant guide before acting, for example `golutra-read-cli-guide` with `guide: "team"` before team creation.
 5. Use the structured team-building flow instead of inventing a custom transport:
@@ -152,9 +152,10 @@ If an AI system or MCP-compatible host sees this repository, the intended usage 
 6. For runtime collaboration after the team exists, use:
    `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`.
 7. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
-8. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
+8. For destructive or restart tools, pass the explicit confirmation fields required by the tool schema, such as `confirmedMemberId` or `confirmedConversationId`.
+9. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
 
-In short: start with diagnostics, read `golutra-read-team-config` for the workspace shape, keep workspace/profile explicit, and use the provided MCP tools as the integration contract.
+In short: start with diagnostics, read `golutra-read-team-config` for the workspace shape, keep workspace/profile/host explicit when needed, and use the provided MCP tools as the integration contract.
 
 For concrete workspace switching and chat flow examples, see `docs/WORKSPACE_CONTEXT_EXAMPLES.md`.
 
@@ -264,7 +265,7 @@ golutra-mcp
 - 本机已安装 Golutra 桌面应用
 - 能访问到 `golutra-cli`
 - 已知的有效工作区路径
-- 本地已启动目标 profile 的 Golutra 桌面应用，通常使用 `stable`
+- 本地已启动目标 Golutra 运行实例。默认查找顺序是 `stable` 桌面端、`stable` server/web、`dev` 桌面端、`dev` server/web。
 
 按平台的默认 CLI 自动发现顺序：
 
@@ -289,7 +290,7 @@ golutra-mcp
 如果一个 AI 系统或支持 MCP 的宿主看到这个仓库，推荐按下面方式接入：
 
 1. 把 `golutra-mcp` 当作本地 `stdio` MCP Server 启动，不要把它当成 HTTP 服务。
-2. 提供 `GOLUTRA_CLI_PATH`、`GOLUTRA_PROFILE`，通常还需要提供 `GOLUTRA_WORKSPACE_PATH`。
+2. 提供 `GOLUTRA_CLI_PATH`，通常还需要提供 `GOLUTRA_WORKSPACE_PATH`。profile/host 不填时使用默认查找顺序；需要固定运行实例时再设置 `GOLUTRA_PROFILE`、`GOLUTRA_CLI_HOST_KIND` 或 `GOLUTRA_TARGET_ORDER`。
 3. 先调用 `golutra-get-context` 或 `golutra-diagnose`，确认运行时上下文和联通状态。
 4. 执行前先读对应指南，例如创建团队前用 `golutra-read-cli-guide` 读取 `guide: "team"`。
 5. 创建团队时按标准工具链路走，不要自造传输协议：
@@ -297,9 +298,10 @@ golutra-mcp
 6. 团队创建完成后的运行期协作使用：
    `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`。
 7. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
-8. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。
+8. 删除或重启类工具必须按 tool schema 传入显式确认字段，例如 `confirmedMemberId` 或 `confirmedConversationId`。
+9. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。
 
-一句话概括：先诊断，再用 `golutra-read-team-config` 读取工作区形态，保持 workspace/profile 显式，然后把 README 里提供的 MCP tools 当作正式集成契约来用。
+一句话概括：先诊断，再用 `golutra-read-team-config` 读取工作区形态，必要时显式指定 workspace/profile/host，然后把 README 里提供的 MCP tools 当作正式集成契约来用。
 
 如果你想看“工作区切换”和“真实聊天链路”的具体调用示例，直接看 `docs/WORKSPACE_CONTEXT_EXAMPLES.md`。
 

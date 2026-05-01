@@ -24,7 +24,10 @@ export class NodeCliJsonRunner {
         const stdoutChunks = [];
         const stderrChunks = [];
         const child = spawn(request.cliPath, request.args, {
-            env: process.env,
+            env: {
+                ...process.env,
+                ...request.env
+            },
             stdio: ["ignore", "pipe", "pipe"]
         });
         child.stdout.setEncoding("utf8");

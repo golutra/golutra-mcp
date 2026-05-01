@@ -91,12 +91,23 @@ It still needs more real-world validation across MCP hosts, operating systems, a
   Default: auto-discover a platform-specific `golutra-cli` install when available, otherwise fall back to the platform command name from `PATH`
 - `GOLUTRA_PROFILE`
   Optional Golutra runtime profile: `dev`, `canary`, or `stable`
+- `GOLUTRA_CLI_HOST_KIND`
+  Optional Golutra runtime host: `desktop` or `server`; `web` maps to `server`
+- `GOLUTRA_TARGET_ORDER`
+  Optional comma-separated runtime search order, for example `stable:desktop,stable:server,dev:desktop,dev:server`
 - `GOLUTRA_WORKSPACE_PATH`
   Optional default workspace path used by tools that require a workspace
 - `GOLUTRA_COMMAND_TIMEOUT_MS`
   Default: `30000`
 
 Use [.env.example](./.env.example) as the minimal local template.
+
+When profile/host are not pinned, MCP tries runtime targets in this order:
+
+- `stable:desktop`
+- `stable:server` / web
+- `dev:desktop`
+- `dev:server` / web
 
 Default CLI discovery order:
 

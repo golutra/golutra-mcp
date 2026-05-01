@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ContextStore,
   createInitialContext,
+  resolveRuntimeTargets,
   resolveDefaultCliPath
 } from "../src/lib/context.js";
 
@@ -11,6 +12,7 @@ describe("ContextStore", () => {
     const initial = createInitialContext({
       GOLUTRA_CLI_PATH: "/tmp/golutra-cli",
       GOLUTRA_PROFILE: "dev",
+      GOLUTRA_CLI_HOST_KIND: "server",
       GOLUTRA_WORKSPACE_PATH: "/tmp/workspace",
       GOLUTRA_COMMAND_TIMEOUT_MS: "12345"
     });
@@ -18,9 +20,54 @@ describe("ContextStore", () => {
     expect(initial).toEqual({
       cliPath: "/tmp/golutra-cli",
       profile: "dev",
+      hostKind: "server",
       workspacePath: "/tmp/workspace",
       timeoutMs: 12345
     });
+  });
+
+  it("defaults runtime target order to stable desktop, stable web, dev desktop, dev web", () => {
+    expect(
+      resolveRuntimeTargets({
+        cliPath: "golutra-cli",
+        timeoutMs: 30_000
+      })
+    ).toEqual([
+      { profile: "stable", hostKind: "desktop" },
+      { profile: "stable", hostKind: "server" },
+      { profile: "dev", hostKind: "desktop" },
+      { profile: "dev", hostKind: "server" }
+    ]);
+  });
+
+  it("allows custom runtime target order from environment", () => {
+    const initial = createInitialContext({
+      GOLUTRA_TARGET_ORDER: "dev:web,stable:desktop"
+    });
+
+    expect(initial.targetOrder).toEqual([
+      { profile: "dev", hostKind: "server" },
+      { profile: "stable", hostKind: "desktop" }
+    ]);
+    expect(resolveRuntimeTargets(initial)).toEqual(initial.targetOrder);
+  });
+
+  it("lets an explicit profile override a stored custom target order", () => {
+    const store = new ContextStore({
+      cliPath: "golutra-cli",
+      targetOrder: [{ profile: "stable", hostKind: "desktop" }],
+      timeoutMs: 30_000
+    });
+
+    const resolved = store.resolveCommandContext({
+      profile: "dev"
+    });
+
+    expect(resolved.targetOrder).toBeUndefined();
+    expect(resolveRuntimeTargets(resolved)).toEqual([
+      { profile: "dev", hostKind: "desktop" },
+      { profile: "dev", hostKind: "server" }
+    ]);
   });
 
   it("prefers an explicit GOLUTRA_CLI_PATH over auto-discovery", () => {

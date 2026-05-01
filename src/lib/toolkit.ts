@@ -24,6 +24,22 @@ import { buildToolError, buildToolSuccess } from "./tool-results.js";
 const optionalWorkspacePath = z.string().trim().min(1).optional();
 const optionalCliPath = z.string().trim().min(1).optional();
 const optionalProfile = z.enum(["dev", "canary", "stable"]).optional();
+const optionalHostKind = z.preprocess(
+  (value) => (value === "web" ? "server" : value),
+  z.enum(["desktop", "server"]).optional()
+);
+const targetOrderSchema = z
+  .array(
+    z.object({
+      profile: z.enum(["dev", "canary", "stable"]),
+      hostKind: z.preprocess(
+        (value) => (value === "web" ? "server" : value),
+        z.enum(["desktop", "server"])
+      )
+    })
+  )
+  .min(1)
+  .optional();
 const optionalTimeout = z.number().int().positive().max(300_000).optional();
 const optionalConversationId = z.string().trim().min(1).optional();
 const nonEmptyString = z.string().trim().min(1);
@@ -55,6 +71,15 @@ const workspaceOverrideNote =
   "When workspacePath is passed here, it only applies to this call and does not update the stored default workspace.";
 const persistedContextNote =
   "Use golutra-set-context only when you want to persist new defaults for later tool calls.";
+const readOnlyLabel = "Read-only.";
+const readOnlyCliLabel = "Read-only. Requires golutra-cli.";
+const readOnlyAppLabel = "Read-only. Requires running app.";
+const writesContextLabel = "Writes MCP context only.";
+const writesWorkspaceLabel = "Writes workspace. Requires running app.";
+const mayReadOrWriteAppLabel =
+  "May read or write workspace/local/store state. Requires running app.";
+const destructiveWorkspaceLabel =
+  "Writes workspace. Destructive or restart operation. Requires explicit confirmation and running app.";
 const mentionIdsSchema = z
   .array(z.string().trim().min(1))
   .min(1)
@@ -100,6 +125,16 @@ function toDiagnosisRecord(checks: DiagnosisChecks): Record<string, DiagnosisChe
   };
 }
 
+function assertConfirmedValue(
+  fieldName: string,
+  expected: string,
+  confirmed: string
+): void {
+  if (expected !== confirmed) {
+    throw new Error(`${fieldName} confirmation mismatch`);
+  }
+}
+
 export function registerTools(
   server: McpServer,
   contextStore: ContextStore,
@@ -110,7 +145,7 @@ export function registerTools(
     {
       title: "Get Golutra MCP context",
       description:
-        "Read the current default golutra-cli path, profile, workspace path, and timeout."
+        `${readOnlyLabel} Read the current default golutra-cli path, profile/host target order, workspace path, and timeout.`
     },
     () => buildToolSuccess("Current MCP context.", contextStore.getSnapshot())
   );
@@ -120,10 +155,12 @@ export function registerTools(
     {
       title: "Set Golutra MCP context",
       description:
-        "Persist new default golutra-cli path, profile, workspace path, or timeout values for later tool calls. Per-tool workspacePath input remains a one-time override.",
+        `${writesContextLabel} Persist new default golutra-cli path, profile, hostKind, targetOrder, workspace path, or timeout values for later tool calls. Default targetOrder is stable desktop -> stable server(web) -> dev desktop -> dev server(web). Per-tool workspacePath input remains a one-time override.`,
       inputSchema: {
         cliPath: optionalCliPath,
         profile: optionalProfile,
+        hostKind: optionalHostKind,
+        targetOrder: targetOrderSchema,
         workspacePath: optionalWorkspacePath,
         timeoutMs: optionalTimeout
       }
@@ -143,7 +180,7 @@ export function registerTools(
     {
       title: "Reset Golutra MCP context",
       description:
-        "Reset the stored CLI path, profile, workspace path, and timeout back to the startup environment defaults."
+        `${writesContextLabel} Reset the stored CLI path, profile/host target order, workspace path, and timeout back to the startup environment defaults.`
     },
     () =>
       buildToolSuccess(
@@ -157,11 +194,13 @@ export function registerTools(
     {
       title: "Diagnose Golutra connectivity",
       description:
-        `Check whether golutra-cli is callable and, when workspacePath and userId are available, whether the running Golutra app accepts workspace-scoped commands. ${workspaceOverrideNote} ${persistedContextNote}`,
+        `${readOnlyCliLabel} May probe running app when workspacePath is available. Check whether golutra-cli is callable and whether the running Golutra app accepts workspace-scoped commands. ${workspaceOverrideNote} ${persistedContextNote}`,
       inputSchema: {
         userId: z.string().trim().min(1).optional(),
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
+        hostKind: optionalHostKind,
+        targetOrder: targetOrderSchema,
         cliPath: optionalCliPath,
         timeoutMs: optionalTimeout
       }
@@ -323,10 +362,12 @@ export function registerTools(
     {
       title: "Run a Golutra structured CLI command",
       description:
-        `Run any supported golutra-cli structured command. Prefer the focused MCP tools when one exists; use this for newly added or less common CLI commands. ${persistedContextNote}`,
+        `${mayReadOrWriteAppLabel} Run any supported golutra-cli structured command. Prefer the focused MCP tools when one exists; use this for newly added or less common CLI commands. ${persistedContextNote}`,
       inputSchema: {
         command: structuredCommandSchema,
         profile: optionalProfile,
+        hostKind: optionalHostKind,
+        targetOrder: targetOrderSchema,
         cliPath: optionalCliPath,
         timeoutMs: optionalTimeout
       }
@@ -347,10 +388,12 @@ export function registerTools(
     {
       title: "Read a Golutra CLI guide",
       description:
-        `Read one top-level golutra-cli guide/help page for team building, collaboration, assets, prompt settings, roles, and other agent-facing workflows. ${persistedContextNote}`,
+        `${readOnlyCliLabel} Read one top-level golutra-cli guide/help page for team building, collaboration, assets, prompt settings, roles, and other agent-facing workflows. ${persistedContextNote}`,
       inputSchema: {
         guide: cliGuideSchema.default("help"),
         profile: optionalProfile,
+        hostKind: optionalHostKind,
+        targetOrder: targetOrderSchema,
         cliPath: optionalCliPath,
         timeoutMs: optionalTimeout
       }
@@ -379,7 +422,7 @@ export function registerTools(
     {
       title: "Read Golutra team config",
       description:
-        `Read one workspace team overview: member config summaries plus conversationSummary for default channel, channels, and directs. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read one workspace team overview: member config summaries plus conversationSummary for default channel, channels, and directs. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
@@ -402,7 +445,7 @@ export function registerTools(
     {
       title: "List Golutra terminal defaults",
       description:
-        "Read selectable Settings member entries before creating project terminals. Only available entries should be used for terminal creation.",
+        `${readOnlyAppLabel} Read selectable Settings member entries before creating project terminals. Only available entries should be used for terminal creation.`,
       inputSchema: {
         profile: optionalProfile
       }
@@ -423,7 +466,7 @@ export function registerTools(
     {
       title: "Create Golutra project terminals",
       description:
-        `Create assistant, supervisor, or member terminals and optionally bind agent templates, project skills, and member prompt overrides at creation time. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Create assistant, supervisor, or member terminals and optionally bind agent templates, project skills, and member prompt overrides at creation time. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -488,16 +531,28 @@ export function registerTools(
     {
       title: "Delete a Golutra project member",
       description:
-        `Delete one created project member. Before calling this tool, ask the user to confirm the exact memberId and memberName. ${workspaceOverrideNote}`,
+        `${destructiveWorkspaceLabel} Delete one created project member. Before calling this tool, ask the user to confirm the exact memberId and memberName. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
         memberId: nonEmptyString,
-        memberName: nonEmptyString
+        memberName: nonEmptyString,
+        confirmedMemberId: nonEmptyString,
+        confirmedMemberName: nonEmptyString
       }
     },
     async (input) => {
       try {
+        assertConfirmedValue(
+          "memberId",
+          input.memberId,
+          input.confirmedMemberId
+        );
+        assertConfirmedValue(
+          "memberName",
+          input.memberName,
+          input.confirmedMemberName
+        );
         const workspacePath = contextStore.requireWorkspacePath(input);
         const runtimeContext = contextStore.resolveCommandContext(input);
         const result = await gateway.deleteMember(runtimeContext, {
@@ -519,7 +574,7 @@ export function registerTools(
     {
       title: "Create a Golutra channel",
       description:
-        `Create one channel and auto-include both userId and owner in the final member set. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Create one channel and auto-include both userId and owner in the final member set. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -550,7 +605,7 @@ export function registerTools(
     {
       title: "Ensure a Golutra direct conversation",
       description:
-        `Return an existing direct conversation or create one if missing. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Return an existing direct conversation or create one if missing. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -579,7 +634,7 @@ export function registerTools(
     {
       title: "Update a Golutra conversation",
       description:
-        `Rename a conversation, replace a normal channel member set, or do both. DM and default-channel member updates are rejected by Golutra. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Rename a conversation, replace a normal channel member set, or do both. DM and default-channel member updates are rejected by Golutra. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -610,15 +665,21 @@ export function registerTools(
     {
       title: "Delete a Golutra conversation",
       description:
-        `Delete one normal channel or direct conversation. Default-channel deletion is rejected by Golutra. ${workspaceOverrideNote}`,
+        `${destructiveWorkspaceLabel} Delete one normal channel or direct conversation. Default-channel deletion is rejected by Golutra. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
-        conversationId: nonEmptyString
+        conversationId: nonEmptyString,
+        confirmedConversationId: nonEmptyString
       }
     },
     async (input) => {
       try {
+        assertConfirmedValue(
+          "conversationId",
+          input.conversationId,
+          input.confirmedConversationId
+        );
         const workspacePath = contextStore.requireWorkspacePath(input);
         const runtimeContext = contextStore.resolveCommandContext(input);
         const result = await gateway.deleteConversation(runtimeContext, {
@@ -637,7 +698,7 @@ export function registerTools(
     {
       title: "List Golutra conversations",
       description:
-        `List channel and direct-message conversations visible to a workspace member. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} List channel and direct-message conversations visible to a workspace member. ${workspaceOverrideNote}`,
       inputSchema: {
         userId: z.string().trim().min(1),
         workspacePath: optionalWorkspacePath,
@@ -664,7 +725,7 @@ export function registerTools(
     {
       title: "List Golutra messages",
       description:
-        `Read recent messages from a Golutra channel or direct conversation. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read recent messages from a Golutra channel or direct conversation. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: z.string().trim().min(1),
         workspacePath: optionalWorkspacePath,
@@ -695,7 +756,7 @@ export function registerTools(
     {
       title: "Send a Golutra message",
       description:
-        `Send a Golutra chat message through golutra-cli using a structured chat.send payload. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Send a Golutra chat message through golutra-cli using a structured chat.send payload. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: z.string().trim().min(1),
         senderId: z.string().trim().min(1),
@@ -728,7 +789,7 @@ export function registerTools(
     {
       title: "Read Golutra roadmap",
       description:
-        `Read the workspace roadmap or a conversation-specific roadmap through golutra-cli. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read the workspace roadmap or a conversation-specific roadmap through golutra-cli. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: optionalConversationId,
         workspacePath: optionalWorkspacePath,
@@ -755,7 +816,7 @@ export function registerTools(
     {
       title: "Update Golutra roadmap",
       description:
-        `Replace the current workspace or conversation roadmap through golutra-cli. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Replace the current workspace or conversation roadmap through golutra-cli. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: optionalConversationId,
         workspacePath: optionalWorkspacePath,
@@ -786,7 +847,7 @@ export function registerTools(
     {
       title: "Read Golutra prompt tokens",
       description:
-        `Read skillCommands, memberReferences, and conversationReferences for prompt textareas. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read skillCommands, memberReferences, and conversationReferences for prompt textareas. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
@@ -809,7 +870,7 @@ export function registerTools(
     {
       title: "Read Golutra prompt options",
       description:
-        `Read valid prompt-setting filter values for one role or one concrete member. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read valid prompt-setting filter values for one role or one concrete member. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -840,7 +901,7 @@ export function registerTools(
     {
       title: "Read Golutra project prompt settings",
       description:
-        `Read project-level initial prompts and dispatch suffix rules for one role. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read project-level initial prompts and dispatch suffix rules for one role. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -867,7 +928,7 @@ export function registerTools(
     {
       title: "Update Golutra project prompt settings",
       description:
-        `Update project-level initial prompts and dispatch suffix rules for one role. Omit a field to keep it; pass null to remove it. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Update project-level initial prompts and dispatch suffix rules for one role. Omit a field to keep it; pass null to remove it. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -902,7 +963,7 @@ export function registerTools(
     {
       title: "Read Golutra member config",
       description:
-        `Read one member's full config snapshot: terminal, agentBinding, skillBinding, promptSettings, and automationSettings. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read one member's full config snapshot: terminal, agentBinding, skillBinding, promptSettings, and automationSettings. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -929,7 +990,7 @@ export function registerTools(
     {
       title: "Read Golutra member prompt settings",
       description:
-        `Read one member's initial prompt overrides and dispatch suffix rules. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read one member's initial prompt overrides and dispatch suffix rules. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -956,7 +1017,7 @@ export function registerTools(
     {
       title: "Update Golutra member prompt settings",
       description:
-        `Update one member's initial prompt overrides and dispatch suffix rules. Omit a field to keep it; pass null to remove it. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Update one member's initial prompt overrides and dispatch suffix rules. Omit a field to keep it; pass null to remove it. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -991,7 +1052,7 @@ export function registerTools(
     {
       title: "Read Golutra member binding",
       description:
-        `Read one member's agentBinding and skillBinding domains. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read one member's agentBinding and skillBinding domains. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1018,7 +1079,7 @@ export function registerTools(
     {
       title: "Update Golutra member binding",
       description:
-        `Update one member's agentBinding and skillBinding. Omit a domain to keep it; pass null to clear it. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Update one member's agentBinding and skillBinding. Omit a domain to keep it; pass null to clear it. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1055,7 +1116,7 @@ export function registerTools(
     {
       title: "Read Golutra member automation",
       description:
-        `Read one member's supervisor settings and scheduled dispatch settings. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read one member's supervisor settings and scheduled dispatch settings. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1082,7 +1143,7 @@ export function registerTools(
     {
       title: "Update Golutra member automation",
       description:
-        `Update supervisorSettings and scheduledDispatchSettings for one member. Omit a domain to keep it; pass null to clear it. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Update supervisorSettings and scheduledDispatchSettings for one member. Omit a domain to keep it; pass null to clear it. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1119,7 +1180,7 @@ export function registerTools(
     {
       title: "Preview Golutra onboarding prompt",
       description:
-        `Preview the built-in or rendered initial prompt for one member role and token context. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Preview the built-in or rendered initial prompt for one member role and token context. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1164,12 +1225,14 @@ export function registerTools(
     {
       title: "Restart a Golutra member terminal",
       description:
-        `Restart one member terminal after the user confirms the exact memberId and memberName. Use this after changing initial prompts when the running session should pick them up. ${workspaceOverrideNote}`,
+        `${destructiveWorkspaceLabel} Restart one member terminal after the user confirms the exact memberId and memberName. Use this after changing initial prompts when the running session should pick them up. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
         memberId: nonEmptyString,
         memberName: nonEmptyString,
+        confirmedMemberId: nonEmptyString,
+        confirmedMemberName: nonEmptyString,
         launchReason: z.string().trim().optional(),
         ownerWindowLabel: z.string().trim().optional(),
         forceClose: z.boolean().optional(),
@@ -1179,6 +1242,16 @@ export function registerTools(
     },
     async (input) => {
       try {
+        assertConfirmedValue(
+          "memberId",
+          input.memberId,
+          input.confirmedMemberId
+        );
+        assertConfirmedValue(
+          "memberName",
+          input.memberName,
+          input.confirmedMemberName
+        );
         const workspacePath = contextStore.requireWorkspacePath(input);
         const runtimeContext = contextStore.resolveCommandContext(input);
         const result = await gateway.restartMember(runtimeContext, {
@@ -1206,7 +1279,7 @@ export function registerTools(
     {
       title: "List Golutra CLI skills",
       description:
-        `List built-in golutra-cli skills and optionally append workspace project skills. ${workspaceOverrideNote}`,
+        `${readOnlyCliLabel} List built-in golutra-cli skills and optionally append workspace project skills. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
@@ -1230,7 +1303,7 @@ export function registerTools(
     "golutra-get-skill",
     {
       title: "Get Golutra CLI skill detail",
-      description: "Read the detailed schema for a built-in golutra-cli skill.",
+      description: `${readOnlyCliLabel} Read the detailed schema for a built-in golutra-cli skill.`,
       inputSchema: {
         skillName: z.string().trim().min(1),
         profile: optionalProfile
@@ -1252,7 +1325,7 @@ export function registerTools(
     {
       title: "Validate a Golutra skill directory",
       description:
-        "Run golutra-cli skill-validate against a local skill directory that contains SKILL.md.",
+        `${readOnlyCliLabel} Run golutra-cli skill-validate against a local skill directory that contains SKILL.md.`,
       inputSchema: {
         skillPath: z.string().trim().min(1),
         profile: optionalProfile
@@ -1274,7 +1347,7 @@ export function registerTools(
     {
       title: "List Golutra project skills",
       description:
-        `List only workspace-resolved project skills discovered from .golutra/skills. ${workspaceOverrideNote}`,
+        `${readOnlyCliLabel} List only workspace-resolved project skills discovered from .golutra/skills. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
@@ -1301,7 +1374,7 @@ export function registerTools(
     {
       title: "Link a Golutra project skill",
       description:
-        `Link one personal skill library folder into the current workspace project skill set. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Link one personal skill library folder into the current workspace project skill set. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1328,7 +1401,7 @@ export function registerTools(
     {
       title: "Read a Golutra project skill document",
       description:
-        `Discover a workspace project skill by name and return its SKILL.md content. ${workspaceOverrideNote}`,
+        `${readOnlyCliLabel} Discover a workspace project skill by name and return its SKILL.md content. ${workspaceOverrideNote}`,
       inputSchema: {
         skillName: z.string().trim().min(1),
         workspacePath: optionalWorkspacePath,
@@ -1353,7 +1426,7 @@ export function registerTools(
     "golutra-list-skill-library",
     {
       title: "List Golutra skill library",
-      description: "List reusable personal skill-library entries.",
+      description: `${readOnlyAppLabel} List reusable personal skill-library entries.`,
       inputSchema: {
         profile: optionalProfile
       }
@@ -1374,7 +1447,7 @@ export function registerTools(
     {
       title: "Create a Golutra skill library entry",
       description:
-        "Scaffold one local skill template folder. Edit and validate the generated skill before linking it into a workspace.",
+        `${writesWorkspaceLabel} Scaffold one local skill template folder. Edit and validate the generated skill before linking it into a workspace.`,
       inputSchema: {
         profile: optionalProfile,
         folderName: nonEmptyString,
@@ -1399,7 +1472,7 @@ export function registerTools(
     "golutra-import-skill-library-entries",
     {
       title: "Import Golutra skill library entries",
-      description: "Import one or more existing local skill folders into the personal skill library.",
+      description: `${writesWorkspaceLabel} Import one or more existing local skill folders into the personal skill library.`,
       inputSchema: {
         profile: optionalProfile,
         sourcePaths: stringArraySchema.min(1)
@@ -1422,7 +1495,7 @@ export function registerTools(
     "golutra-list-agents",
     {
       title: "List Golutra agent templates",
-      description: "List local agent repository templates that can be bound to project members.",
+      description: `${readOnlyAppLabel} List local agent repository templates that can be bound to project members.`,
       inputSchema: {
         profile: optionalProfile
       }
@@ -1443,7 +1516,7 @@ export function registerTools(
     {
       title: "Create a Golutra agent template",
       description:
-        "Create one local agent template. roleSettingBody should contain only the agent role description body; Golutra generates the fixed template structure.",
+        `${writesWorkspaceLabel} Create one local agent template. roleSettingBody should contain only the agent role description body; Golutra generates the fixed template structure.`,
       inputSchema: {
         profile: optionalProfile,
         folderName: nonEmptyString,
@@ -1476,7 +1549,7 @@ export function registerTools(
     "golutra-inspect-template",
     {
       title: "Inspect a Golutra template",
-      description: "Preview one local .gfriend.zip file or repository source path.",
+      description: `${readOnlyAppLabel} Preview one local .gfriend.zip file or repository source path.`,
       inputSchema: {
         profile: optionalProfile,
         filePath: nonEmptyString
@@ -1499,7 +1572,7 @@ export function registerTools(
     "golutra-list-template-repository",
     {
       title: "List Golutra template repository",
-      description: "List My Templates repository cards.",
+      description: `${readOnlyAppLabel} List My Templates repository cards.`,
       inputSchema: {
         profile: optionalProfile
       }
@@ -1520,7 +1593,7 @@ export function registerTools(
     {
       title: "Use a Golutra template repository card",
       description:
-        `Apply one My Templates repository card to a workspace. This is the front-end repository-card Use semantic, not generic external import. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Apply one My Templates repository card to a workspace. This is the front-end repository-card Use semantic, not generic external import. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
@@ -1557,7 +1630,7 @@ export function registerTools(
     {
       title: "Run a Golutra store command",
       description:
-        "Run one supported store.* structured command. Use store assets only after the user explicitly approves store usage.",
+        `${mayReadOrWriteAppLabel} Run one supported store.* structured command. Use store assets only after the user explicitly approves store usage.`,
       inputSchema: {
         profile: optionalProfile,
         commandType: storeCommandTypeSchema,
