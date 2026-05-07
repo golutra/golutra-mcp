@@ -6,6 +6,17 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-05-07
+
+### Added
+
+- Added `golutra-update-member-name` for renaming one project member by `memberId` without changing bindings, prompts, automation, conversations, or terminal sessions.
+- Added focused template export tools: `golutra-export-template-workspace` for exporting workspace content into My Templates with create/replace modes, and `golutra-publish-template-edited` for exporting one My Templates card as a zip file.
+
+### Changed
+
+- Clarified template export tool descriptions so MCP hosts distinguish the two real actions: workspace-to-My-Templates and My-Templates-card-to-zip.
+
 ## [0.1.3] - 2026-05-01
 
 ### Added
