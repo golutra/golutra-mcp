@@ -28,6 +28,9 @@ This repository focuses on protocol translation, context management, diagnostics
 - `golutra-validate-skill`
 - `golutra-list-project-skills`
 - `golutra-read-project-skill`
+- `golutra-update-member-name`
+- `golutra-export-template-workspace`
+- `golutra-publish-template-edited`
 
 ### Design Principles
 

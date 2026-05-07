@@ -307,6 +307,170 @@ describe("registerTools", () => {
     });
   });
 
+  it("registers golutra-update-member-name and forwards rename requests", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const updateMemberName = vi.fn().mockResolvedValue({
+      memberId: "01MEMBER",
+      name: "前端负责人"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        updateMemberName
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-update-member-name");
+    expect(handler).toBeTypeOf("function");
+
+    const result = await handler?.({
+      memberId: "01MEMBER",
+      name: "前端负责人"
+    });
+
+    expect(updateMemberName).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace",
+        memberId: "01MEMBER",
+        name: "前端负责人"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        memberId: "01MEMBER",
+        name: "前端负责人"
+      }
+    });
+  });
+
+  it("registers golutra-export-template-workspace and forwards template export options", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const exportFriendTemplateRepositoryWorkspace = vi.fn().mockResolvedValue({
+      templateDisplayName: "开发团队"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        exportFriendTemplateRepositoryWorkspace
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-export-template-workspace");
+    expect(handler).toBeTypeOf("function");
+
+    const result = await handler?.({
+      workspacePath: "/workspace",
+      templateDisplayName: "开发团队",
+      memberIds: ["01OWNER", "01MEMBER"],
+      skillStorePackageBindingsByPath: {
+        ".golutra/skills/frontend/SKILL.md": "pkg.frontend"
+      },
+      agentStorePackageBindingsByFolderName: {
+        "quality-maintainer": "pkg.quality"
+      },
+      replaceInstalledPath: "/tmp/template.zip"
+    });
+
+    expect(exportFriendTemplateRepositoryWorkspace).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        workspacePath: "/workspace",
+        templateDisplayName: "开发团队",
+        memberIds: ["01OWNER", "01MEMBER"],
+        skillStorePackageBindingsByPath: {
+          ".golutra/skills/frontend/SKILL.md": "pkg.frontend"
+        },
+        agentStorePackageBindingsByFolderName: {
+          "quality-maintainer": "pkg.quality"
+        },
+        replaceInstalledPath: "/tmp/template.zip"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        templateDisplayName: "开发团队"
+      }
+    });
+  });
+
+  it("registers golutra-publish-template-edited and forwards publish options", async () => {
+    const server = new FakeMcpServer();
+    const contextStore = new ContextStore({
+      cliPath: "golutra-cli",
+      workspacePath: "/workspace",
+      timeoutMs: 30_000
+    });
+    const publishEditedFriendTemplateRepository = vi.fn().mockResolvedValue({
+      fileName: "quality-maintainer"
+    });
+
+    registerTools(
+      server as never,
+      contextStore,
+      {
+        publishEditedFriendTemplateRepository
+      } as never
+    );
+
+    const handler = server.tools.get("golutra-publish-template-edited");
+    expect(handler).toBeTypeOf("function");
+
+    const result = await handler?.({
+      fileName: "quality-maintainer",
+      targetFilePath: "/tmp/quality-maintainer.zip",
+      terminalOverrides: [{ terminalType: "codex" }],
+      projectSettings: {
+        teamSize: 4
+      },
+      skillSourceWorkspacePath: "/workspace/source"
+    });
+
+    expect(publishEditedFriendTemplateRepository).toHaveBeenCalledWith(
+      {
+        cliPath: "golutra-cli",
+        workspacePath: "/workspace",
+        timeoutMs: 30_000
+      },
+      {
+        fileName: "quality-maintainer",
+        targetFilePath: "/tmp/quality-maintainer.zip",
+        terminalOverrides: [{ terminalType: "codex" }],
+        projectSettings: {
+          teamSize: 4
+        },
+        skillSourceWorkspacePath: "/workspace/source"
+      }
+    );
+    expect(result).toMatchObject({
+      structuredContent: {
+        fileName: "quality-maintainer"
+      }
+    });
+  });
+
   it("exposes top-level CLI guides as readable text", async () => {
     const server = new FakeMcpServer();
     const contextStore = new ContextStore({

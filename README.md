@@ -95,7 +95,7 @@ Today it already provides:
 
 - a local `stdio` MCP server
 - a command bridge based on `golutra-cli`
-- tool coverage for CLI guides, team config, terminal creation, member deletion, conversation topology, chat, roadmap, prompt settings, member bindings, automation, agents, templates, store commands, context, diagnostics, and skill discovery
+- tool coverage for CLI guides, team config, terminal creation, member rename/delete, conversation topology, chat, roadmap, prompt settings, member bindings, automation, agents, templates, template export/use, store commands, context, diagnostics, and skill discovery
 - skill validation and direct project `SKILL.md` reading for local Golutra skill workflows
 - an open-source project skeleton with contribution, security, CI, and release-facing metadata
 

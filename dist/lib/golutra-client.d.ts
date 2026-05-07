@@ -66,6 +66,11 @@ export declare class GolutraCliGateway {
         workspacePath: string;
         memberId: string;
     }): Promise<Record<string, unknown>>;
+    updateMemberName(runtimeContext: RuntimeContextSnapshot, input: {
+        workspacePath: string;
+        memberId: string;
+        name: string;
+    }): Promise<Record<string, unknown>>;
     createChannel(runtimeContext: RuntimeContextSnapshot, input: {
         workspacePath: string;
         userId: string;
@@ -124,6 +129,22 @@ export declare class GolutraCliGateway {
     }): Promise<Record<string, unknown>>;
     listFriendTemplateRepository(runtimeContext: RuntimeContextSnapshot): Promise<Record<string, unknown>>;
     useFriendTemplateRepository(runtimeContext: RuntimeContextSnapshot, payload: Record<string, unknown>): Promise<Record<string, unknown>>;
+    exportFriendTemplateRepositoryWorkspace(runtimeContext: RuntimeContextSnapshot, input: {
+        workspacePath: string;
+        workspaceId?: string | undefined;
+        templateDisplayName?: string | undefined;
+        memberIds?: string[] | undefined;
+        skillStorePackageBindingsByPath?: Record<string, string> | undefined;
+        agentStorePackageBindingsByFolderName?: Record<string, string> | undefined;
+        replaceInstalledPath?: string | null | undefined;
+    }): Promise<Record<string, unknown>>;
+    publishEditedFriendTemplateRepository(runtimeContext: RuntimeContextSnapshot, input: {
+        fileName: string;
+        targetFilePath: string;
+        terminalOverrides?: unknown[] | undefined;
+        projectSettings?: Record<string, unknown> | undefined;
+        skillSourceWorkspacePath?: string | undefined;
+    }): Promise<Record<string, unknown>>;
     listSkillsLibrary(runtimeContext: RuntimeContextSnapshot): Promise<Record<string, unknown>>;
     createSkillLibraryEntry(runtimeContext: RuntimeContextSnapshot, payload: Record<string, unknown>): Promise<Record<string, unknown>>;
     importSkillLibraryEntries(runtimeContext: RuntimeContextSnapshot, input: {

@@ -396,6 +396,23 @@ export class GolutraCliGateway {
     );
   }
 
+  async updateMemberName(
+    runtimeContext: RuntimeContextSnapshot,
+    input: { workspacePath: string; memberId: string; name: string }
+  ): Promise<Record<string, unknown>> {
+    return this.executeCommand(
+      {
+        type: "project.member.name.update",
+        payload: {
+          workspacePath: input.workspacePath,
+          memberId: input.memberId,
+          name: input.name
+        }
+      },
+      runtimeContext
+    );
+  }
+
   async createChannel(
     runtimeContext: RuntimeContextSnapshot,
     input: {
@@ -721,6 +738,93 @@ export class GolutraCliGateway {
       {
         type: "friend-template.repository.use",
         payload
+      },
+      runtimeContext
+    );
+  }
+
+  async exportFriendTemplateRepositoryWorkspace(
+    runtimeContext: RuntimeContextSnapshot,
+    input: {
+      workspacePath: string;
+      workspaceId?: string | undefined;
+      templateDisplayName?: string | undefined;
+      memberIds?: string[] | undefined;
+      skillStorePackageBindingsByPath?: Record<string, string> | undefined;
+      agentStorePackageBindingsByFolderName?: Record<string, string> | undefined;
+      replaceInstalledPath?: string | null | undefined;
+    }
+  ): Promise<Record<string, unknown>> {
+    const workspaceId =
+      input.workspaceId?.trim() ||
+      (await this.listTeamConfig(runtimeContext, {
+        workspacePath: input.workspacePath
+      })).workspaceId?.trim();
+    if (!workspaceId) {
+      throw new Error(
+        "workspaceId is required for friend-template.repository.export-workspace"
+      );
+    }
+
+    return this.executeCommand(
+      {
+        type: "friend-template.repository.export-workspace",
+        payload: {
+          workspaceId,
+          workspacePath: input.workspacePath,
+          ...(input.templateDisplayName
+            ? { templateDisplayName: input.templateDisplayName }
+            : {}),
+          ...(input.memberIds?.length ? { memberIds: input.memberIds } : {}),
+          ...(input.skillStorePackageBindingsByPath &&
+          Object.keys(input.skillStorePackageBindingsByPath).length > 0
+            ? {
+                skillStorePackageBindingsByPath:
+                  input.skillStorePackageBindingsByPath
+              }
+            : {}),
+          ...(input.agentStorePackageBindingsByFolderName &&
+          Object.keys(input.agentStorePackageBindingsByFolderName).length > 0
+            ? {
+                agentStorePackageBindingsByFolderName:
+                  input.agentStorePackageBindingsByFolderName
+              }
+            : {}),
+          ...(input.replaceInstalledPath !== undefined
+            ? {
+                replaceInstalledPath: input.replaceInstalledPath?.trim() || null
+              }
+            : {})
+        }
+      },
+      runtimeContext
+    );
+  }
+
+  async publishEditedFriendTemplateRepository(
+    runtimeContext: RuntimeContextSnapshot,
+    input: {
+      fileName: string;
+      targetFilePath: string;
+      terminalOverrides?: unknown[] | undefined;
+      projectSettings?: Record<string, unknown> | undefined;
+      skillSourceWorkspacePath?: string | undefined;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.executeCommand(
+      {
+        type: "friend-template.repository.publish-edited",
+        payload: {
+          fileName: input.fileName,
+          targetFilePath: input.targetFilePath,
+          ...(input.terminalOverrides ? { terminalOverrides: input.terminalOverrides } : {}),
+          ...(input.projectSettings ? { projectSettings: input.projectSettings } : {}),
+          ...(input.skillSourceWorkspacePath
+            ? {
+                skillSourceWorkspacePath: input.skillSourceWorkspacePath.trim()
+              }
+            : {})
+        }
       },
       runtimeContext
     );

@@ -6,6 +6,7 @@ import { buildToolError, buildToolSuccess } from "./tool-results.js";
 const optionalWorkspacePath = z.string().trim().min(1).optional();
 const optionalCliPath = z.string().trim().min(1).optional();
 const optionalProfile = z.enum(["dev", "canary", "stable"]).optional();
+const optionalWorkspaceId = z.string().trim().min(1).optional();
 const optionalHostKind = z.preprocess((value) => (value === "web" ? "server" : value), z.enum(["desktop", "server"]).optional());
 const targetOrderSchema = z
     .array(z.object({
@@ -20,6 +21,7 @@ const nonEmptyString = z.string().trim().min(1);
 const projectMemberIdsSchema = z.array(nonEmptyString).min(2);
 const stringArraySchema = z.array(nonEmptyString);
 const optionalJsonObject = z.record(z.unknown()).optional();
+const optionalStringRecord = z.record(z.string().trim().min(1)).optional();
 const roleTypeSchema = z.enum(["assistant", "supervisor", "member"]);
 const promptRoleTypeSchema = z.enum(["assistant", "supervisor", "member"]);
 const cliGuideSchema = z.enum(GOLUTRA_CLI_GUIDES);
@@ -419,6 +421,30 @@ export function registerTools(server, contextStore, gateway) {
                 memberId: input.memberId
             });
             return buildToolSuccess(`Deleted project member ${input.memberName}.`, result);
+        }
+        catch (error) {
+            return buildToolError(error);
+        }
+    });
+    server.registerTool("golutra-update-member-name", {
+        title: "Rename a Golutra project member",
+        description: `${writesWorkspaceLabel} Rename one existing project member by memberId only. This only updates the display name and does not change bindings, prompts, automation, conversations, or terminal sessions. ${workspaceOverrideNote}`,
+        inputSchema: {
+            workspacePath: optionalWorkspacePath,
+            profile: optionalProfile,
+            memberId: nonEmptyString,
+            name: nonEmptyString
+        }
+    }, async (input) => {
+        try {
+            const workspacePath = contextStore.requireWorkspacePath(input);
+            const runtimeContext = contextStore.resolveCommandContext(input);
+            const result = await gateway.updateMemberName(runtimeContext, {
+                workspacePath,
+                memberId: input.memberId,
+                name: input.name
+            });
+            return buildToolSuccess(`Renamed project member ${input.memberId}.`, result);
         }
         catch (error) {
             return buildToolError(error);
@@ -1289,6 +1315,83 @@ export function registerTools(server, contextStore, gateway) {
                 ...(input.projectSettings ? { projectSettings: input.projectSettings } : {})
             });
             return buildToolSuccess("Used template repository card.", result);
+        }
+        catch (error) {
+            return buildToolError(error);
+        }
+    });
+    server.registerTool("golutra-export-template-workspace", {
+        title: "Export current workspace to My Templates",
+        description: `${writesWorkspaceLabel} Export current workspace content into My Templates. Omit replaceInstalledPath to create a new card, or pass an existing card filePath from golutra-list-template-repository as replaceInstalledPath to replace it while preserving cloud binding/package metadata when available. If workspaceId is omitted, the tool will try to read it from the current team config. ${workspaceOverrideNote}`,
+        inputSchema: {
+            workspacePath: optionalWorkspacePath,
+            profile: optionalProfile,
+            workspaceId: optionalWorkspaceId,
+            templateDisplayName: z.string().trim().optional(),
+            memberIds: stringArraySchema.optional(),
+            skillStorePackageBindingsByPath: optionalStringRecord,
+            agentStorePackageBindingsByFolderName: optionalStringRecord,
+            replaceInstalledPath: z.string().trim().optional().nullable().describe("Optional existing My Templates card filePath from golutra-list-template-repository. Omit to create a new card; pass it to replace that card.")
+        }
+    }, async (input) => {
+        try {
+            const workspacePath = contextStore.requireWorkspacePath(input);
+            const runtimeContext = contextStore.resolveCommandContext(input);
+            const result = await gateway.exportFriendTemplateRepositoryWorkspace(runtimeContext, {
+                workspacePath,
+                ...(input.workspaceId ? { workspaceId: input.workspaceId } : {}),
+                ...(input.templateDisplayName
+                    ? { templateDisplayName: input.templateDisplayName }
+                    : {}),
+                ...(input.memberIds?.length ? { memberIds: input.memberIds } : {}),
+                ...(input.skillStorePackageBindingsByPath
+                    ? {
+                        skillStorePackageBindingsByPath: input.skillStorePackageBindingsByPath
+                    }
+                    : {}),
+                ...(input.agentStorePackageBindingsByFolderName
+                    ? {
+                        agentStorePackageBindingsByFolderName: input.agentStorePackageBindingsByFolderName
+                    }
+                    : {}),
+                ...(input.replaceInstalledPath !== undefined
+                    ? { replaceInstalledPath: input.replaceInstalledPath }
+                    : {})
+            });
+            return buildToolSuccess("Exported workspace template to My Templates.", result);
+        }
+        catch (error) {
+            return buildToolError(error);
+        }
+    });
+    server.registerTool("golutra-publish-template-edited", {
+        title: "Export a Golutra template card to a zip file",
+        description: `${writesWorkspaceLabel} Export one existing My Templates card as a zip file. This is the front-end repository-card "Export to folder" action; targetFilePath must be the full output zip path, not just a directory. ${workspaceOverrideNote}`,
+        inputSchema: {
+            profile: optionalProfile,
+            fileName: nonEmptyString,
+            targetFilePath: nonEmptyString,
+            terminalOverrides: z.array(z.unknown()).optional(),
+            projectSettings: optionalJsonObject,
+            skillSourceWorkspacePath: optionalWorkspacePath
+        }
+    }, async (input) => {
+        try {
+            const runtimeContext = contextStore.resolveCommandContext(input);
+            const result = await gateway.publishEditedFriendTemplateRepository(runtimeContext, {
+                fileName: input.fileName,
+                targetFilePath: input.targetFilePath,
+                ...(input.terminalOverrides
+                    ? { terminalOverrides: input.terminalOverrides }
+                    : {}),
+                ...(input.projectSettings ? { projectSettings: input.projectSettings } : {}),
+                ...(input.skillSourceWorkspacePath
+                    ? {
+                        skillSourceWorkspacePath: input.skillSourceWorkspacePath
+                    }
+                    : {})
+            });
+            return buildToolSuccess("Exported template card to zip file.", result);
         }
         catch (error) {
             return buildToolError(error);

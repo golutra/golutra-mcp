@@ -94,6 +94,9 @@ async function main() {
     assert(toolNames.includes("golutra-set-context"));
     assert(toolNames.includes("golutra-list-skills"));
     assert(toolNames.includes("golutra-diagnose"));
+    assert(toolNames.includes("golutra-update-member-name"));
+    assert(toolNames.includes("golutra-export-template-workspace"));
+    assert(toolNames.includes("golutra-publish-template-edited"));
 
     const setContext = ensureToolSuccess(
       "golutra-set-context",

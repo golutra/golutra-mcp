@@ -233,6 +233,16 @@ export class GolutraCliGateway {
             }
         }, runtimeContext);
     }
+    async updateMemberName(runtimeContext, input) {
+        return this.executeCommand({
+            type: "project.member.name.update",
+            payload: {
+                workspacePath: input.workspacePath,
+                memberId: input.memberId,
+                name: input.name
+            }
+        }, runtimeContext);
+    }
     async createChannel(runtimeContext, input) {
         return this.executeCommand({
             type: "chat.channel.create",
@@ -399,6 +409,59 @@ export class GolutraCliGateway {
         return this.executeCommand({
             type: "friend-template.repository.use",
             payload
+        }, runtimeContext);
+    }
+    async exportFriendTemplateRepositoryWorkspace(runtimeContext, input) {
+        const workspaceId = input.workspaceId?.trim() ||
+            (await this.listTeamConfig(runtimeContext, {
+                workspacePath: input.workspacePath
+            })).workspaceId?.trim();
+        if (!workspaceId) {
+            throw new Error("workspaceId is required for friend-template.repository.export-workspace");
+        }
+        return this.executeCommand({
+            type: "friend-template.repository.export-workspace",
+            payload: {
+                workspaceId,
+                workspacePath: input.workspacePath,
+                ...(input.templateDisplayName
+                    ? { templateDisplayName: input.templateDisplayName }
+                    : {}),
+                ...(input.memberIds?.length ? { memberIds: input.memberIds } : {}),
+                ...(input.skillStorePackageBindingsByPath &&
+                    Object.keys(input.skillStorePackageBindingsByPath).length > 0
+                    ? {
+                        skillStorePackageBindingsByPath: input.skillStorePackageBindingsByPath
+                    }
+                    : {}),
+                ...(input.agentStorePackageBindingsByFolderName &&
+                    Object.keys(input.agentStorePackageBindingsByFolderName).length > 0
+                    ? {
+                        agentStorePackageBindingsByFolderName: input.agentStorePackageBindingsByFolderName
+                    }
+                    : {}),
+                ...(input.replaceInstalledPath !== undefined
+                    ? {
+                        replaceInstalledPath: input.replaceInstalledPath?.trim() || null
+                    }
+                    : {})
+            }
+        }, runtimeContext);
+    }
+    async publishEditedFriendTemplateRepository(runtimeContext, input) {
+        return this.executeCommand({
+            type: "friend-template.repository.publish-edited",
+            payload: {
+                fileName: input.fileName,
+                targetFilePath: input.targetFilePath,
+                ...(input.terminalOverrides ? { terminalOverrides: input.terminalOverrides } : {}),
+                ...(input.projectSettings ? { projectSettings: input.projectSettings } : {}),
+                ...(input.skillSourceWorkspacePath
+                    ? {
+                        skillSourceWorkspacePath: input.skillSourceWorkspacePath.trim()
+                    }
+                    : {})
+            }
         }, runtimeContext);
     }
     async listSkillsLibrary(runtimeContext) {
