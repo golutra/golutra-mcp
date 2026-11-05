@@ -219,6 +219,8 @@ Typical examples:
 - `golutra-update-member-automation`
 - `golutra-list-conversations`
 - `golutra-list-messages`
+- `golutra-send-messages` (preferred batch/private/reply entry)
+- `golutra-read-inbox`
 - `golutra-send-message`
 - `golutra-read-roadmap`
 - `golutra-update-roadmap`
@@ -356,3 +358,45 @@ Goal:
 - 如果 `/workspace-a` 只是本次临时使用，就继续显式传参，不要调用 `golutra-set-context`
 - 如果后续也都要固定用 `/workspace-a`，可以先用一次 `golutra-set-context` 持久化
 - `mentionIds` 必须显式给出，而且不能包含 `all`
+
+## Example 5: Batch Private Messages, Channel Messages And Replies
+
+Prefer `golutra-send-messages` for current integrations. A single call submits all items to the selected Host; `queued` means accepted into the member queue, not that a model has finished replying.
+
+新集成优先使用 `golutra-send-messages`，一次提交私聊、群聊和回复。`queued` 表示已进入成员队列，不表示模型已经完成回复。
+
+Tool: `golutra-send-messages`
+
+```json
+{
+  "workspacePath": "/workspace-a",
+  "senderId": "01USER",
+  "requestId": "status-round-001",
+  "messages": [
+    {
+      "key": "notify-a",
+      "to": { "memberId": "01ASSISTANT" },
+      "text": "Please summarize your latest task status."
+    },
+    {
+      "key": "channel-update",
+      "to": { "conversationId": "01CHANNEL", "mentionIds": ["01ASSISTANT"] },
+      "text": "Please review the current plan."
+    },
+    {
+      "key": "answer-original",
+      "replyTo": "01SOURCE_MESSAGE",
+      "text": "The requested verification is complete."
+    }
+  ]
+}
+```
+
+- Supply exactly one destination per item: `to.memberId`, `to.conversationId` with explicit `mentionIds`, or `replyTo`. Use the actual source message ID for replies.
+- Check `items[].status` even when the batch was accepted. A partial failure preserves successes. Retry an unchanged failed or uncertain item with the same `requestId` and `key`; changed text or destination needs a new key.
+- Verified member processes may omit `senderId` and `workspacePath` for Host inference. An external local operator must supply them; supplying an ID does not bypass identity checks or grant inbox access.
+- When a member receives `GOLUTRA_INBOX`, use `golutra-read-inbox` with its `batchId`, starting at `cursor: 0`, then follow `nextCursor` until `complete: true`. Reply using the original message IDs.
+- 每条只能指定一种目的地；`replyTo` 使用收到的原消息 ID，不使用会话 ID。
+- 必须检查逐项结果。重试内容未变的失败/不确定项时保持 `requestId + key` 不变；修改正文或目的地后使用新 key，避免幂等冲突。
+- 可信成员进程可由 Host 推断身份与工作区；外部本机操作员应显式传入。声明 senderId 不能绕过身份校验或取得成员收件箱权限。
+- 收到 `GOLUTRA_INBOX` 时，从 cursor 0 读取该 batchId 的完整分页，直到 complete，再按原消息 ID 回复。

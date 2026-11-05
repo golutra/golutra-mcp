@@ -5,8 +5,8 @@ export type GolutraProfile = (typeof GOLUTRA_PROFILES)[number];
 export type GolutraHostKind = (typeof GOLUTRA_HOST_KINDS)[number];
 
 export interface GolutraRuntimeTarget {
-  profile: GolutraProfile;
-  hostKind: GolutraHostKind;
+  profile?: GolutraProfile | undefined;
+  hostKind?: GolutraHostKind | undefined;
 }
 
 export interface RuntimeContextSnapshot {
@@ -32,17 +32,49 @@ export interface CliCommandRequest {
   args: string[];
   env?: Record<string, string | undefined> | undefined;
   timeoutMs: number;
+  stdin?: string | undefined;
 }
 
 export interface StructuredCommandEnvelope {
   ok: boolean;
-  requestId?: string | undefined;
+  requestId?: string | null | undefined;
+  hostKind?: GolutraHostKind | null | undefined;
+  errorCode?: string | undefined;
   result?: {
     status: string;
-    message?: string | undefined;
+    message?: string | null | undefined;
     data?: unknown;
-  } | undefined;
-  error?: string | undefined;
+  } | null | undefined;
+  error?: string | null | undefined;
+}
+
+export interface ChatBatchMessage {
+  key: string;
+  text: string;
+  to?: { memberId?: string; conversationId?: string; mentionIds?: string[] } | undefined;
+  replyTo?: string | undefined;
+}
+
+export interface ChatBatchInput {
+  requestId: string;
+  messages: ChatBatchMessage[];
+  workspacePath?: string | undefined;
+  senderId?: string | undefined;
+}
+
+export interface ChatBatchResult {
+  requestId: string;
+  accepted: number;
+  duplicates: number;
+  failed: number;
+  items: Array<{
+    key: string;
+    status: "queued" | "no_targets" | "duplicate" | "failed";
+    conversationId?: string;
+    messageId?: string;
+    enqueued: number;
+    error?: string;
+  }>;
 }
 
 export interface ListSkillsResponse {

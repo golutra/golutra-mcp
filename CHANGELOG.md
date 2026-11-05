@@ -6,6 +6,14 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Send structured commands through stdin and preserve CLI failure codes/request IDs. Reap timed-out child processes; a timeout does not cancel Host execution.
+- Delegate runtime discovery to the CLI. Remove automatic desktop/server and stable/dev replay; legacy `targetOrder` accepts only one explicit target.
+- Add `golutra-send-messages`, `golutra-read-inbox`, `golutra-cli-info`, and `golutra-wait-command`; support async submission on `golutra-run-command` and complete guide references with `full: true`.
+- Preserve batch partial failures and stable retry keys. Existing single-message tools remain available with optional `requestId`.
+- Requires the updated Golutra CLI with `info` and `--timeout-ms`. Repeatable async results require command protocol v2 on the Host.
+
 ## [0.1.4] - 2026-05-07
 
 ### Added

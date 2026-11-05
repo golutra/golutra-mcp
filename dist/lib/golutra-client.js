@@ -18,18 +18,19 @@ const GOLUTRA_CLI_GUIDES = [
 function buildProfileArgs(profile) {
     return profile ? ["--profile", profile] : [];
 }
-function buildCliGuideArgs(profile, guide) {
+function buildCliGuideArgs(profile, guide, full = false) {
     return [
         ...buildProfileArgs(profile),
-        ...(guide === "help" ? ["--help"] : [guide])
+        ...(guide === "help" ? ["--help"] : [guide, ...(full ? ["--full"] : [])])
     ];
 }
-function buildStructuredRunArgs(profile, command) {
+function buildStructuredRunArgs(profile, timeoutMs) {
     return [
         ...buildProfileArgs(profile),
         "run",
-        "--command",
-        JSON.stringify(command)
+        "--stdin",
+        "--timeout-ms",
+        String(timeoutMs)
     ];
 }
 function buildSkillsArgs(profile, options) {
@@ -64,85 +65,54 @@ function normalizeMentionIds(mentionIds) {
 }
 function buildTargetEnv(target) {
     return {
-        GOLUTRA_CLI_HOST_KIND: target.hostKind
+        GOLUTRA_CLI_HOST_KIND: target.hostKind ?? "auto"
     };
-}
-function isRetryableIpcConnectionError(error) {
-    if (!(error instanceof CliExecutionError)) {
-        return false;
-    }
-    return /failed to connect golutra ipc/i.test(error.message);
 }
 export class GolutraCliGateway {
     runner;
     constructor(runner) {
         this.runner = runner;
     }
-    async executeJsonWithRuntimeTargets(runtimeContext, buildArgs) {
-        const targets = resolveRuntimeTargets(runtimeContext);
-        let lastError;
-        for (const target of targets) {
-            try {
-                return await this.runner.executeJson({
-                    cliPath: runtimeContext.cliPath,
-                    args: buildArgs(target),
-                    env: buildTargetEnv(target),
-                    timeoutMs: runtimeContext.timeoutMs
-                });
-            }
-            catch (error) {
-                lastError = error;
-                if (!isRetryableIpcConnectionError(error)) {
-                    throw error;
-                }
-            }
-        }
-        throw lastError instanceof Error
-            ? lastError
-            : new Error("golutra-cli could not connect to any configured runtime target");
+    async executeJsonWithRuntimeTargets(runtimeContext, buildArgs, stdin) {
+        const target = resolveRuntimeTargets(runtimeContext)[0] ?? {};
+        return this.runner.executeJson({
+            cliPath: runtimeContext.cliPath,
+            args: buildArgs(target),
+            env: buildTargetEnv(target),
+            timeoutMs: runtimeContext.timeoutMs + 1500,
+            stdin
+        });
     }
     async executeTextWithRuntimeTargets(runtimeContext, buildArgs) {
         if (!this.runner.executeText) {
             throw new Error("CLI text execution is not available");
         }
-        const targets = resolveRuntimeTargets(runtimeContext);
-        let lastError;
-        for (const target of targets) {
-            try {
-                return await this.runner.executeText({
-                    cliPath: runtimeContext.cliPath,
-                    args: buildArgs(target),
-                    env: buildTargetEnv(target),
-                    timeoutMs: runtimeContext.timeoutMs
-                });
-            }
-            catch (error) {
-                lastError = error;
-                if (!isRetryableIpcConnectionError(error)) {
-                    throw error;
-                }
-            }
-        }
-        throw lastError instanceof Error
-            ? lastError
-            : new Error("golutra-cli could not connect to any configured runtime target");
+        const target = resolveRuntimeTargets(runtimeContext)[0] ?? {};
+        return this.runner.executeText({
+            cliPath: runtimeContext.cliPath,
+            args: buildArgs(target),
+            env: buildTargetEnv(target),
+            timeoutMs: runtimeContext.timeoutMs
+        });
     }
-    async readCliGuide(runtimeContext, guide) {
-        const text = await this.executeTextWithRuntimeTargets(runtimeContext, (target) => buildCliGuideArgs(target.profile, guide));
+    async readCliGuide(runtimeContext, guide, full = false) {
+        const text = await this.executeTextWithRuntimeTargets(runtimeContext, (target) => buildCliGuideArgs(target.profile, guide, full));
         return {
             guide,
             text
         };
     }
     async executeCommand(command, runtimeContext) {
-        const response = await this.executeJsonWithRuntimeTargets(runtimeContext, (target) => buildStructuredRunArgs(target.profile, command));
+        const response = await this.executeJsonWithRuntimeTargets(runtimeContext, (target) => buildStructuredRunArgs(target.profile, runtimeContext.timeoutMs), JSON.stringify(command));
         if (!response.ok || response.result?.status !== "ok") {
             throw new CliExecutionError({
                 message: response.error ??
                     response.result?.message ??
                     "golutra-cli returned an unsuccessful command result",
                 cliPath: runtimeContext.cliPath,
-                args: buildStructuredRunArgs(resolveRuntimeTargets(runtimeContext)[0]?.profile, command),
+                args: buildStructuredRunArgs(resolveRuntimeTargets(runtimeContext)[0]?.profile, runtimeContext.timeoutMs),
+                code: response.errorCode,
+                requestId: response.requestId ?? undefined,
                 exitCode: 1
             });
         }
@@ -178,9 +148,35 @@ export class GolutraCliGateway {
                 conversationId: input.conversationId,
                 senderId: input.senderId,
                 text: input.text,
-                mentionIds
+                mentionIds,
+                ...(input.requestId ? { requestId: input.requestId } : {})
             }
         }, runtimeContext);
+    }
+    async sendMessages(context, input) {
+        return this.executeCommand({ type: "chat.send.batch", payload: { ...input } }, context);
+    }
+    async readInbox(context, input) {
+        return this.executeCommand({ type: "chat.inbox.read", payload: { ...input } }, context);
+    }
+    async readCliInfo(context) {
+        return this.executeJsonWithRuntimeTargets(context, target => [
+            ...buildProfileArgs(target.profile), "info", "--json", "--timeout-ms", String(context.timeoutMs)
+        ]);
+    }
+    async submitCommand(command, context) {
+        const response = await this.executeJsonWithRuntimeTargets(context, target => [...buildStructuredRunArgs(target.profile, context.timeoutMs), "--async"], JSON.stringify(command));
+        if (!response.ok || !response.requestId) {
+            throw new Error(response.error ?? "Async command was not accepted");
+        }
+        return response;
+    }
+    async waitCommand(context, requestId) {
+        const response = await this.executeJsonWithRuntimeTargets(context, target => [...buildProfileArgs(target.profile), "wait", "--request-id", requestId, "--timeout-ms", String(context.timeoutMs)]);
+        if (!response.ok || response.result?.status !== "ok") {
+            throw new Error(response.error ?? response.result?.message ?? "Command did not complete successfully");
+        }
+        return { requestId: response.requestId, result: response.result };
     }
     async readRoadmap(runtimeContext, input) {
         const payload = {

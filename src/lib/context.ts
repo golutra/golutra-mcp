@@ -13,12 +13,6 @@ import type {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_TIMEOUT_MS = 300_000;
-export const DEFAULT_TARGET_ORDER: GolutraRuntimeTarget[] = [
-  { profile: "stable", hostKind: "desktop" },
-  { profile: "stable", hostKind: "server" },
-  { profile: "dev", hostKind: "desktop" },
-  { profile: "dev", hostKind: "server" }
-];
 
 function normalizeNonEmptyString(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -46,7 +40,7 @@ function normalizeTimeout(value: number | string | undefined): number {
     return Math.min(value, MAX_TIMEOUT_MS);
   }
   if (typeof value === "string") {
-    const parsed = Number.parseInt(value, 10);
+    const parsed = Number(value);
     if (Number.isInteger(parsed) && parsed > 0) {
       return Math.min(parsed, MAX_TIMEOUT_MS);
     }
@@ -81,11 +75,10 @@ function normalizeTargetOrder(
   value: GolutraRuntimeTarget[] | string | undefined
 ): GolutraRuntimeTarget[] | undefined {
   if (Array.isArray(value)) {
-    const targets = value.map((target) => ({
-      profile: normalizeProfile(target.profile) ?? "stable",
-      hostKind: normalizeHostKind(target.hostKind) ?? "desktop"
-    }));
-    return targets.length > 0 ? dedupeTargets(targets) : undefined;
+    return validateLegacyTargetOrder(value.map((target) => ({
+      profile: normalizeProfile(target.profile),
+      hostKind: normalizeHostKind(target.hostKind)
+    })));
   }
 
   const trimmed = normalizeNonEmptyString(value);
@@ -94,7 +87,9 @@ function normalizeTargetOrder(
   }
 
   const targets = trimmed.split(",").map((rawTarget) => {
-    const [rawProfile, rawHostKind] = rawTarget.split(":");
+    const parts = rawTarget.split(":");
+    if (parts.length !== 2) { throw new Error("targetOrder must use profile:hostKind"); }
+    const [rawProfile, rawHostKind] = parts;
     const profile = normalizeProfile(rawProfile);
     const hostKind = normalizeHostKind(rawHostKind);
     if (!profile || !hostKind) {
@@ -105,50 +100,26 @@ function normalizeTargetOrder(
     return { profile, hostKind };
   });
 
-  return targets.length > 0 ? dedupeTargets(targets) : undefined;
+  return validateLegacyTargetOrder(targets);
 }
 
-function dedupeTargets(targets: GolutraRuntimeTarget[]): GolutraRuntimeTarget[] {
-  const seen = new Set<string>();
-  const result: GolutraRuntimeTarget[] = [];
-
-  for (const target of targets) {
-    const key = `${target.profile}:${target.hostKind}`;
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    result.push(target);
+function validateLegacyTargetOrder(targets: GolutraRuntimeTarget[]): GolutraRuntimeTarget[] | undefined {
+  if (targets.length === 0) { return undefined; }
+  if (targets.length !== 1 || !targets[0]?.profile || !targets[0]?.hostKind) {
+    throw new Error("targetOrder is deprecated and accepts exactly one explicit profile:hostKind. Set profile/hostKind instead; MCP never retries across runtimes.");
   }
-
-  return result;
+  return targets;
 }
 
 export function resolveRuntimeTargets(
   context: RuntimeContextSnapshot
 ): GolutraRuntimeTarget[] {
   if (context.targetOrder && context.targetOrder.length > 0) {
-    return context.targetOrder;
+    return validateLegacyTargetOrder(context.targetOrder) ?? [];
   }
 
-  const profiles = context.profile
-    ? [context.profile]
-    : DEFAULT_TARGET_ORDER.map((target) => target.profile);
-  const hostKinds = context.hostKind
-    ? [context.hostKind]
-    : DEFAULT_TARGET_ORDER.map((target) => target.hostKind);
-  const candidates: GolutraRuntimeTarget[] = [];
-
-  for (const defaultTarget of DEFAULT_TARGET_ORDER) {
-    if (
-      profiles.includes(defaultTarget.profile) &&
-      hostKinds.includes(defaultTarget.hostKind)
-    ) {
-      candidates.push(defaultTarget);
-    }
-  }
-
-  return dedupeTargets(candidates);
+  // 未指定的 profile/Host 交给 CLI 解析，不能在 MCP 再做一套环境发现和重放。
+  return [{ profile: context.profile, hostKind: context.hostKind }];
 }
 
 function getDefaultCliCommand(platform: NodeJS.Platform): string {
@@ -251,7 +222,7 @@ export function createInitialContext(
     cliPath: resolveDefaultCliPath(env),
     timeoutMs: normalizeTimeout(env.GOLUTRA_COMMAND_TIMEOUT_MS)
   };
-  const profile = normalizeProfile(env.GOLUTRA_PROFILE);
+  const profile = normalizeProfile(env.GOLUTRA_PROFILE ?? env.GOLUTRA_RUNTIME_PROFILE);
   const hostKind = normalizeHostKind(
     env.GOLUTRA_CLI_HOST_KIND ?? env.GOLUTRA_HOST_KIND
   );

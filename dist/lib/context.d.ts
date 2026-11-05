@@ -1,5 +1,4 @@
 import type { CommandContextInput, GolutraRuntimeTarget, RuntimeContextSnapshot } from "./types.js";
-export declare const DEFAULT_TARGET_ORDER: GolutraRuntimeTarget[];
 export declare function resolveRuntimeTargets(context: RuntimeContextSnapshot): GolutraRuntimeTarget[];
 export declare function resolveDefaultCliPath(env: NodeJS.ProcessEnv, options?: {
     platform?: NodeJS.Platform;

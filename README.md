@@ -35,7 +35,7 @@
 
 <p align="center">
   Keep Golutra as the app runtime. Use golutra-cli as the stable boundary. Expose the workflow through MCP. <br />
-  保留 Golutra 作为桌面运行时，以 golutra-cli 作为稳定边界，再通过 MCP 暴露给外部 AI 宿主。
+  复用 Golutra 桌面或 Web Host，以 golutra-cli 作为稳定边界，再通过 MCP 暴露给外部 AI 宿主。
 </p>
 
 ---
@@ -114,12 +114,12 @@ That means this repository is mainly responsible for:
 
 ### Runtime Requirements
 
-To work correctly, the server still depends on the existing Golutra desktop runtime:
+To work correctly, the bridge requires a local Golutra Host and a matching CLI:
 
-- a locally installed Golutra desktop application
+- a Golutra desktop installation or Web/Server bundle
 - a reachable `golutra-cli` binary
 - a valid Golutra workspace path
-- the target Golutra app runtime running locally. By default MCP tries `stable` desktop, `stable` server/web, `dev` desktop, then `dev` server/web.
+- the intended Golutra desktop or Web Host running locally. MCP delegates profile/Host discovery to the CLI and never replays commands across runtimes. Use the updated CLI supporting `info` and `--timeout-ms`; protocol v2 Hosts additionally retain completed async results for 15 minutes.
 
 Default CLI discovery by platform:
 
@@ -144,13 +144,13 @@ Detailed diagnostic output fields and common `reasonCode` values are documented 
 If an AI system or MCP-compatible host sees this repository, the intended usage is:
 
 1. Launch `golutra-mcp` as a local `stdio` MCP server, not as an HTTP service.
-2. Provide `GOLUTRA_CLI_PATH` and usually `GOLUTRA_WORKSPACE_PATH`. Leave profile/host unset to use the default target order, or set `GOLUTRA_PROFILE`, `GOLUTRA_CLI_HOST_KIND`, or `GOLUTRA_TARGET_ORDER` when you need a specific runtime.
+2. Provide `GOLUTRA_CLI_PATH` and usually `GOLUTRA_WORKSPACE_PATH`. Leave profile/host unset to use CLI discovery, or set `GOLUTRA_PROFILE` / `GOLUTRA_CLI_HOST_KIND` explicitly. An inherited `GOLUTRA_RUNTIME_PROFILE` is respected. Deprecated `GOLUTRA_TARGET_ORDER` accepts one explicit target only.
 3. Call `golutra-get-context` or `golutra-diagnose` first to confirm runtime readiness.
 4. Read the relevant guide before acting, for example `golutra-read-cli-guide` with `guide: "team"` before team creation.
 5. Use the structured team-building flow instead of inventing a custom transport:
    `golutra-read-team-config` -> `golutra-list-terminal-defaults` / `golutra-create-terminals` / conversation tools / prompt tools / automation tools.
 6. For runtime collaboration after the team exists, use:
-   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`.
+   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-messages` / `golutra-read-inbox` / roadmap tools. Inspect each batch item; retry unchanged messages with the same requestId and key. Partial failure never rolls back accepted items.
 7. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
 8. For destructive or restart tools, pass the explicit confirmation fields required by the tool schema, such as `confirmedMemberId` or `confirmedConversationId`.
 9. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
@@ -262,10 +262,10 @@ golutra-mcp
 
 这个 MCP Server 运行时依赖现有的 Golutra 本地运行环境：
 
-- 本机已安装 Golutra 桌面应用
+- 本机已安装 Golutra 桌面应用或 Web/Server 部署包
 - 能访问到 `golutra-cli`
 - 已知的有效工作区路径
-- 本地已启动目标 Golutra 运行实例。默认查找顺序是 `stable` 桌面端、`stable` server/web、`dev` 桌面端、`dev` server/web。
+- 本地已启动目标 Golutra 桌面或 Web Host。MCP 将 profile/Host 发现交给 CLI，不跨运行环境重放请求。需要支持 `info`、`--timeout-ms` 的新版 CLI；Host 协议 v2 另外提供完成结果保留 15 分钟的异步查询能力。
 
 按平台的默认 CLI 自动发现顺序：
 
@@ -290,13 +290,13 @@ golutra-mcp
 如果一个 AI 系统或支持 MCP 的宿主看到这个仓库，推荐按下面方式接入：
 
 1. 把 `golutra-mcp` 当作本地 `stdio` MCP Server 启动，不要把它当成 HTTP 服务。
-2. 提供 `GOLUTRA_CLI_PATH`，通常还需要提供 `GOLUTRA_WORKSPACE_PATH`。profile/host 不填时使用默认查找顺序；需要固定运行实例时再设置 `GOLUTRA_PROFILE`、`GOLUTRA_CLI_HOST_KIND` 或 `GOLUTRA_TARGET_ORDER`。
+2. 提供 `GOLUTRA_CLI_PATH`，通常还需要提供 `GOLUTRA_WORKSPACE_PATH`。profile/host 不填时由 CLI 发现，并尊重继承的 `GOLUTRA_RUNTIME_PROFILE`；可通过 `GOLUTRA_PROFILE`、`GOLUTRA_CLI_HOST_KIND` 固定目标。旧 `GOLUTRA_TARGET_ORDER` 只接受一个明确目标，多目标配置需迁移。
 3. 先调用 `golutra-get-context` 或 `golutra-diagnose`，确认运行时上下文和联通状态。
 4. 执行前先读对应指南，例如创建团队前用 `golutra-read-cli-guide` 读取 `guide: "team"`。
 5. 创建团队时按标准工具链路走，不要自造传输协议：
    `golutra-read-team-config` -> `golutra-list-terminal-defaults` / `golutra-create-terminals` / 会话拓扑工具 / 提示词工具 / 自动化工具。
 6. 团队创建完成后的运行期协作使用：
-   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-message` / `golutra-read-roadmap` / `golutra-update-roadmap`。
+   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-messages` / `golutra-read-inbox` / 路线图工具。批量发送检查每项状态；重试原消息保留同一 requestId 和 key，部分失败不会回滚已经接收的项。
 7. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
 8. 删除或重启类工具必须按 tool schema 传入显式确认字段，例如 `confirmedMemberId` 或 `confirmedConversationId`。
 9. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。

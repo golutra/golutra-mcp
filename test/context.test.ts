@@ -26,30 +26,28 @@ describe("ContextStore", () => {
     });
   });
 
-  it("defaults runtime target order to stable desktop, stable web, dev desktop, dev web", () => {
+  it("delegates runtime discovery to the selected CLI without cross-profile fallback", () => {
     expect(
       resolveRuntimeTargets({
         cliPath: "golutra-cli",
         timeoutMs: 30_000
       })
     ).toEqual([
-      { profile: "stable", hostKind: "desktop" },
-      { profile: "stable", hostKind: "server" },
-      { profile: "dev", hostKind: "desktop" },
-      { profile: "dev", hostKind: "server" }
+      { profile: undefined, hostKind: undefined }
     ]);
   });
 
-  it("allows custom runtime target order from environment", () => {
+  it("accepts one legacy target and rejects cross-runtime replay configurations", () => {
     const initial = createInitialContext({
-      GOLUTRA_TARGET_ORDER: "dev:web,stable:desktop"
+      GOLUTRA_TARGET_ORDER: "dev:web"
     });
 
     expect(initial.targetOrder).toEqual([
-      { profile: "dev", hostKind: "server" },
-      { profile: "stable", hostKind: "desktop" }
+      { profile: "dev", hostKind: "server" }
     ]);
     expect(resolveRuntimeTargets(initial)).toEqual(initial.targetOrder);
+    expect(() => createInitialContext({GOLUTRA_TARGET_ORDER: "dev:web,stable:desktop"})).toThrow("exactly one");
+    expect(createInitialContext({GOLUTRA_RUNTIME_PROFILE: "dev"}).profile).toBe("dev");
   });
 
   it("lets an explicit profile override a stored custom target order", () => {
@@ -65,8 +63,7 @@ describe("ContextStore", () => {
 
     expect(resolved.targetOrder).toBeUndefined();
     expect(resolveRuntimeTargets(resolved)).toEqual([
-      { profile: "dev", hostKind: "desktop" },
-      { profile: "dev", hostKind: "server" }
+      { profile: "dev", hostKind: undefined }
     ]);
   });
 

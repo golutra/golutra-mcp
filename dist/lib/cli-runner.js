@@ -28,37 +28,45 @@ export class NodeCliJsonRunner {
                 ...process.env,
                 ...request.env
             },
-            stdio: ["ignore", "pipe", "pipe"]
+            stdio: ["pipe", "pipe", "pipe"]
         });
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
         child.stdout.on("data", (chunk) => stdoutChunks.push(chunk));
         child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
         return new Promise((resolve, reject) => {
+            let timedOut = false;
+            let startError;
+            let inputError;
+            let killTimer;
             const timer = setTimeout(() => {
+                timedOut = true;
                 child.kill("SIGTERM");
-                reject(new CliExecutionError({
-                    message: `golutra-cli timed out after ${request.timeoutMs}ms`,
-                    cliPath: request.cliPath,
-                    args: request.args,
-                    exitCode: null,
-                    stdout: stdoutChunks.join(""),
-                    stderr: stderrChunks.join("")
-                }));
+                // 必须等待关闭并回收进程；停止 CLI 不代表 Host 中的任务已取消。
+                killTimer = setTimeout(() => child.kill("SIGKILL"), 500);
             }, request.timeoutMs);
             child.once("error", (error) => {
-                clearTimeout(timer);
-                reject(new CliExecutionError({
-                    message: `failed to start golutra-cli: ${error.message}`,
-                    cliPath: request.cliPath,
-                    args: request.args,
-                    exitCode: null,
-                    stdout: stdoutChunks.join(""),
-                    stderr: stderrChunks.join("")
-                }));
+                startError = error;
             });
+            child.stdin.on("error", (error) => { inputError = error; });
+            child.stdin.end(request.stdin ?? "", "utf8");
             child.once("close", (exitCode) => {
                 clearTimeout(timer);
+                if (killTimer) {
+                    clearTimeout(killTimer);
+                }
+                if (timedOut || startError || (inputError && exitCode === 0 && request.stdin)) {
+                    reject(new CliExecutionError({
+                        message: timedOut
+                            ? `golutra-cli timed out after ${request.timeoutMs}ms; Host execution may continue; do not automatically resend`
+                            : startError ? `failed to start golutra-cli: ${startError.message}`
+                                : `failed to write command stdin: ${inputError?.message}`,
+                        code: timedOut ? "CLI_PROCESS_TIMEOUT" : startError ? "CLI_START_FAILED" : "CLI_STDIN_FAILED",
+                        cliPath: request.cliPath, args: request.args, exitCode,
+                        stdout: stdoutChunks.join(""), stderr: stderrChunks.join("")
+                    }));
+                    return;
+                }
                 resolve({
                     exitCode,
                     stdout: stdoutChunks.join(""),
@@ -111,11 +119,20 @@ export class NodeCliJsonRunner {
                 stderr: completed.stderr
             });
         }
-        if (completed.exitCode !== 0) {
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
             throw new CliExecutionError({
-                message: extractErrorMessage(parsed) ??
-                    completed.stderr.trim() ??
+                message: "golutra-cli returned invalid JSON: expected an object",
+                code: "CLI_PROTOCOL_ERROR", cliPath: request.cliPath, args: request.args,
+                exitCode: completed.exitCode, stdout: completed.stdout, stderr: completed.stderr
+            });
+        }
+        if (completed.exitCode !== 0 || ("ok" in parsed && parsed.ok === false)) {
+            throw new CliExecutionError({
+                message: extractErrorMessage(parsed) ||
+                    completed.stderr.trim() ||
                     `golutra-cli exited with code ${completed.exitCode}`,
+                code: "errorCode" in parsed && typeof parsed.errorCode === "string" ? parsed.errorCode : undefined,
+                requestId: "requestId" in parsed && typeof parsed.requestId === "string" ? parsed.requestId : undefined,
                 cliPath: request.cliPath,
                 args: request.args,
                 exitCode: completed.exitCode,

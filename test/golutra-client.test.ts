@@ -51,11 +51,11 @@ describe("GolutraCliGateway", () => {
     expect(request.args[0]).toBe("--profile");
     expect(request.args[1]).toBe("dev");
     expect(request.args[2]).toBe("run");
-    expect(request.args[3]).toBe("--command");
+    expect(request.args[3]).toBe("--stdin");
     expect(request.env).toEqual({
-      GOLUTRA_CLI_HOST_KIND: "desktop"
+      GOLUTRA_CLI_HOST_KIND: "auto"
     });
-    expect(JSON.parse(request.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(request.stdin ?? "{}")).toEqual({
       type: "chat.send",
       payload: {
         workspacePath: "/workspace",
@@ -100,15 +100,15 @@ describe("GolutraCliGateway", () => {
 
     const request = executeJson.mock.calls[0]?.[0] as CliCommandRequest;
     expect(request.args.slice(0, 4)).toEqual([
-      "--profile",
-      "stable",
       "run",
-      "--command"
+      "--stdin",
+      "--timeout-ms",
+      "10000"
     ]);
     expect(request.env).toEqual({
-      GOLUTRA_CLI_HOST_KIND: "desktop"
+      GOLUTRA_CLI_HOST_KIND: "auto"
     });
-    expect(JSON.parse(request.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(request.stdin ?? "{}")).toEqual({
       type: "project.members.config.list",
       payload: {
         workspacePath: "/workspace"
@@ -150,9 +150,9 @@ describe("GolutraCliGateway", () => {
       "--profile",
       "stable",
       "run",
-      "--command"
+      "--stdin"
     ]);
-    expect(JSON.parse(request.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(request.stdin ?? "{}")).toEqual({
       type: "project.member.name.update",
       payload: {
         workspacePath: "/workspace",
@@ -210,7 +210,7 @@ describe("GolutraCliGateway", () => {
     expect(executeJson).toHaveBeenCalledTimes(2);
 
     const listRequest = executeJson.mock.calls[0]?.[0] as CliCommandRequest;
-    expect(JSON.parse(listRequest.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(listRequest.stdin ?? "{}")).toEqual({
       type: "project.members.config.list",
       payload: {
         workspacePath: "/workspace"
@@ -219,9 +219,9 @@ describe("GolutraCliGateway", () => {
 
     const exportRequest = executeJson.mock.calls[1]?.[0] as CliCommandRequest;
     expect(exportRequest.env).toEqual({
-      GOLUTRA_CLI_HOST_KIND: "desktop"
+      GOLUTRA_CLI_HOST_KIND: "auto"
     });
-    expect(JSON.parse(exportRequest.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(exportRequest.stdin ?? "{}")).toEqual({
       type: "friend-template.repository.export-workspace",
       payload: {
         workspaceId: "workspace-01",
@@ -276,9 +276,9 @@ describe("GolutraCliGateway", () => {
       "--profile",
       "dev",
       "run",
-      "--command"
+      "--stdin"
     ]);
-    expect(JSON.parse(request.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(request.stdin ?? "{}")).toEqual({
       type: "friend-template.repository.publish-edited",
       payload: {
         fileName: "quality-maintainer",
@@ -316,7 +316,7 @@ describe("GolutraCliGateway", () => {
       cliPath: "golutra-cli",
       args: ["--profile", "dev", "team"],
       env: {
-        GOLUTRA_CLI_HOST_KIND: "desktop"
+        GOLUTRA_CLI_HOST_KIND: "auto"
       },
       timeoutMs: 10_000
     });
@@ -360,12 +360,12 @@ describe("GolutraCliGateway", () => {
 
     const request = executeJson.mock.calls[0]?.[0] as CliCommandRequest;
     expect(request.args.slice(0, 4)).toEqual([
-      "--profile",
-      "stable",
       "run",
-      "--command"
+      "--stdin",
+      "--timeout-ms",
+      "10000"
     ]);
-    expect(JSON.parse(request.args[4] ?? "{}")).toEqual({
+    expect(JSON.parse(request.stdin ?? "{}")).toEqual({
       type: "chat.send",
       payload: {
         workspacePath: "/workspace",
@@ -431,56 +431,17 @@ describe("GolutraCliGateway", () => {
       "/workspace"
     ]);
     expect(request.env).toEqual({
-      GOLUTRA_CLI_HOST_KIND: "desktop"
+      GOLUTRA_CLI_HOST_KIND: "auto"
     });
   });
 
-  it("falls back from stable desktop to stable web when IPC is unreachable", async () => {
-    const executeJson = vi
-      .fn<CliJsonRunner["executeJson"]>()
-      .mockRejectedValueOnce(
-        new CliExecutionError({
-          message:
-            "failed to connect golutra ipc for profile `stable` host_kind=`desktop`",
-          cliPath: "golutra-cli",
-          args: ["--profile", "stable", "run"],
-          exitCode: 1
-        })
-      )
-      .mockResolvedValueOnce({
-        ok: true,
-        result: {
-          status: "ok",
-          data: {
-            members: []
-          }
-        }
-      } satisfies StructuredCommandEnvelope);
-
-    const gateway = new GolutraCliGateway({
-      executeJson
-    });
-
-    await gateway.listTeamConfig(
-      {
-        cliPath: "golutra-cli",
-        timeoutMs: 10_000
-      },
-      {
-        workspacePath: "/workspace"
-      }
-    );
-
-    expect(executeJson).toHaveBeenCalledTimes(2);
-    expect((executeJson.mock.calls[0]?.[0] as CliCommandRequest).env).toEqual({
-      GOLUTRA_CLI_HOST_KIND: "desktop"
-    });
-    expect((executeJson.mock.calls[1]?.[0] as CliCommandRequest).args[1]).toBe(
-      "stable"
-    );
-    expect((executeJson.mock.calls[1]?.[0] as CliCommandRequest).env).toEqual({
-      GOLUTRA_CLI_HOST_KIND: "server"
-    });
+  it.each(["COMMAND_IPC_UNAVAILABLE", "COMMAND_IPC_RESULT_UNCONFIRMED", "CLI_PROCESS_TIMEOUT"])("never replays a command after %s", async (code) => {
+    const error = new CliExecutionError({ message: "transport failed", code, cliPath: "golutra-cli", args: ["run"], exitCode: 1 });
+    const executeJson = vi.fn<CliJsonRunner["executeJson"]>().mockRejectedValue(error);
+    const gateway = new GolutraCliGateway({ executeJson });
+    await expect(gateway.listTeamConfig({ cliPath: "golutra-cli", timeoutMs: 10000 }, { workspacePath: "/workspace" })).rejects.toBe(error);
+    expect(executeJson).toHaveBeenCalledTimes(1);
+    expect((executeJson.mock.calls[0]?.[0] as CliCommandRequest).env).toEqual({ GOLUTRA_CLI_HOST_KIND: "auto" });
   });
 
   it("builds a skill-validate command", () => {

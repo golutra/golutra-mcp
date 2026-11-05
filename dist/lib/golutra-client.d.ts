@@ -1,10 +1,10 @@
 import type { CliJsonRunner } from "./cli-runner.js";
-import type { ChatConversationsListData, ChatMessagesListData, ChatSendData, CommandContextInput, ListSkillsResponse, ProjectMembersConfigListData, RoadmapResultData, RuntimeContextSnapshot, SkillValidationResult, StructuredCommand } from "./types.js";
+import type { ChatConversationsListData, ChatMessagesListData, ChatSendData, ChatBatchInput, ChatBatchResult, CommandContextInput, ListSkillsResponse, ProjectMembersConfigListData, RoadmapResultData, RuntimeContextSnapshot, SkillValidationResult, StructuredCommand, StructuredCommandEnvelope } from "./types.js";
 declare const GOLUTRA_CLI_GUIDES: readonly ["help", "team", "collaboration", "store", "chat", "terminals", "prompt", "agents", "templates", "roadmap", "member", "assistant", "supervisor"];
 type GolutraCliGuide = (typeof GOLUTRA_CLI_GUIDES)[number];
 declare function buildProfileArgs(profile: RuntimeContextSnapshot["profile"]): string[];
-declare function buildCliGuideArgs(profile: RuntimeContextSnapshot["profile"], guide: GolutraCliGuide): string[];
-declare function buildStructuredRunArgs(profile: RuntimeContextSnapshot["profile"], command: StructuredCommand): string[];
+declare function buildCliGuideArgs(profile: RuntimeContextSnapshot["profile"], guide: GolutraCliGuide, full?: boolean): string[];
+declare function buildStructuredRunArgs(profile: RuntimeContextSnapshot["profile"], timeoutMs: number): string[];
 declare function buildSkillsArgs(profile: RuntimeContextSnapshot["profile"], options: {
     skillName?: string | undefined;
     workspacePath?: string | undefined;
@@ -16,7 +16,7 @@ export declare class GolutraCliGateway {
     constructor(runner: CliJsonRunner);
     private executeJsonWithRuntimeTargets;
     private executeTextWithRuntimeTargets;
-    readCliGuide(runtimeContext: RuntimeContextSnapshot, guide: GolutraCliGuide): Promise<{
+    readCliGuide(runtimeContext: RuntimeContextSnapshot, guide: GolutraCliGuide, full?: boolean): Promise<{
         guide: GolutraCliGuide;
         text: string;
     }>;
@@ -37,7 +37,18 @@ export declare class GolutraCliGateway {
         senderId: string;
         text: string;
         mentionIds: string[];
+        requestId?: string | undefined;
     }): Promise<ChatSendData>;
+    sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatBatchResult>;
+    readInbox(context: RuntimeContextSnapshot, input: {
+        batchId: string;
+        cursor?: number | undefined;
+        senderId?: string | undefined;
+        workspacePath?: string | undefined;
+    }): Promise<Record<string, unknown>>;
+    readCliInfo(context: RuntimeContextSnapshot): Promise<Record<string, unknown>>;
+    submitCommand(command: StructuredCommand, context: RuntimeContextSnapshot): Promise<StructuredCommandEnvelope>;
+    waitCommand(context: RuntimeContextSnapshot, requestId: string): Promise<Record<string, unknown>>;
     readRoadmap(runtimeContext: RuntimeContextSnapshot, input: {
         workspacePath: string;
         conversationId?: string | undefined;

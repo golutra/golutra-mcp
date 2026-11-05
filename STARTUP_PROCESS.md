@@ -97,7 +97,7 @@ It still needs more real-world validation across MCP hosts, operating systems, a
 - `GOLUTRA_CLI_HOST_KIND`
   Optional Golutra runtime host: `desktop` or `server`; `web` maps to `server`
 - `GOLUTRA_TARGET_ORDER`
-  Optional comma-separated runtime search order, for example `stable:desktop,stable:server,dev:desktop,dev:server`
+  Deprecated compatibility option: accepts one explicit target, for example `dev:server`. Multiple targets are rejected to prevent cross-runtime replay.
 - `GOLUTRA_WORKSPACE_PATH`
   Optional default workspace path used by tools that require a workspace
 - `GOLUTRA_COMMAND_TIMEOUT_MS`
@@ -105,12 +105,11 @@ It still needs more real-world validation across MCP hosts, operating systems, a
 
 Use [.env.example](./.env.example) as the minimal local template.
 
-When profile/host are not pinned, MCP tries runtime targets in this order:
+When profile/host are not pinned, the CLI owns discovery. `GOLUTRA_RUNTIME_PROFILE` is inherited when `GOLUTRA_PROFILE` is unset. CLI auto host order is server then desktop within that profile; explicit `GOLUTRA_COMMAND_IPC_ADDR` still has highest priority. MCP does not retry a command in another runtime.
 
-- `stable:desktop`
-- `stable:server` / web
-- `dev:desktop`
-- `dev:server` / web
+Use the updated CLI with `info` and `--timeout-ms`. `golutra-cli-info` reports CLI path/version and Host instance identity. Protocol v2 Hosts retain completed async results for 15 minutes; `golutra-run-command` with `asynchronous: true` returns a handle for `golutra-wait-command`. Host restart clears handles. Wait timeout and CLI process timeout do not cancel backend execution.
+
+New integrations use stdin, never JSON in argv. Read concise guides first and request `full: true` for field-level references. Prefer `golutra-send-messages` for private/channel messages and explicit replies; use `golutra-read-inbox` to read all frozen inbox pages. Preserve requestId/item keys on retries and inspect partial failures. Existing `golutra-send-message` remains available.
 
 Default CLI discovery order:
 

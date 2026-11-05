@@ -18,6 +18,7 @@ export type DiagnosisReasonCode =
   | "USER_ID_MISSING"
   | "APP_NOT_RUNNING_OR_PROFILE_MISMATCH"
   | "APP_COMMAND_FAILED"
+  | "COMMAND_RESULT_UNCONFIRMED"
   | "APP_PROBE_SKIPPED";
 
 export interface DiagnosisCheck {
@@ -228,10 +229,20 @@ export function classifyAppProbeFailure(
   runtimeContext: RuntimeContextSnapshot
 ): DiagnosisCheck & { nextSteps: string[] } {
   const lowerText = normalizeLowerText(error);
-  const profile = runtimeContext.profile ?? "stable";
+  const profile = runtimeContext.profile ?? "selected by CLI";
+
+  if (error instanceof CliExecutionError && ["COMMAND_IPC_RESULT_UNCONFIRMED", "CLI_PROCESS_TIMEOUT", "CLI_STDIN_FAILED"].includes(error.code ?? "")) {
+    return {
+      ok: false, reasonCode: "COMMAND_RESULT_UNCONFIRMED",
+      message: "The command outcome is unconfirmed; the Host may still be executing it.",
+      error: toStructuredError(error),
+      nextSteps: ["Check the original Host and request ID. Do not automatically resend writes or switch profiles.", "For async work retry wait with the same requestId; for chat retries preserve the original requestId and item keys."]
+    };
+  }
 
   // 这里的判断优先看 IPC 连接失败特征，避免把“桌面端没启动”误报成普通业务错误。
   if (
+    (error instanceof CliExecutionError && error.code === "COMMAND_IPC_UNAVAILABLE") ||
     lowerText.includes("failed to connect golutra ipc") ||
     lowerText.includes("golutra-command.sock") ||
     lowerText.includes("\\\\.\\pipe\\golutra-command") ||
@@ -241,10 +252,10 @@ export function classifyAppProbeFailure(
     return {
       ok: false,
       reasonCode: "APP_NOT_RUNNING_OR_PROFILE_MISMATCH",
-      message: `Golutra desktop app for profile ${profile} is not reachable through local IPC.`,
+      message: `Golutra Host for profile ${profile} is not reachable through local IPC.`,
       error: toStructuredError(error),
       nextSteps: [
-        `Start the Golutra desktop app with profile ${profile}, then retry the diagnostic.`,
+        `Start the intended Golutra desktop or Web Host with profile ${profile}, then retry the read-only diagnostic.`,
         "If another profile is currently running, update GOLUTRA_PROFILE or golutra-set-context to the correct profile."
       ]
     };

@@ -20,6 +20,8 @@ import {
   readProjectSkillDocument
 } from "./project-skills.js";
 import { buildToolError, buildToolSuccess } from "./tool-results.js";
+import { registerChatBatchTools } from "./chat-batch-tools.js";
+import { registerTransportTools } from "./transport-tools.js";
 
 const optionalWorkspacePath = z.string().trim().min(1).optional();
 const optionalCliPath = z.string().trim().min(1).optional();
@@ -40,6 +42,7 @@ const targetOrderSchema = z
     })
   )
   .min(1)
+  .max(1)
   .optional();
 const optionalTimeout = z.number().int().positive().max(300_000).optional();
 const optionalConversationId = z.string().trim().min(1).optional();
@@ -142,6 +145,8 @@ export function registerTools(
   contextStore: ContextStore,
   gateway: GolutraCliGateway
 ): void {
+  registerChatBatchTools(server, contextStore, gateway);
+  registerTransportTools(server, contextStore, gateway);
   server.registerTool(
     "golutra-get-context",
     {
@@ -157,7 +162,7 @@ export function registerTools(
     {
       title: "Set Golutra MCP context",
       description:
-        `${writesContextLabel} Persist new default golutra-cli path, profile, hostKind, targetOrder, workspace path, or timeout values for later tool calls. Default targetOrder is stable desktop -> stable server(web) -> dev desktop -> dev server(web). Per-tool workspacePath input remains a one-time override.`,
+        `${writesContextLabel} Persist default CLI path, profile, hostKind, workspace or timeout for later calls. Unset profile/host uses CLI discovery; MCP never retries across environments. Deprecated targetOrder accepts one explicit target only. Per-tool workspacePath is a one-time override.`,
       inputSchema: {
         cliPath: optionalCliPath,
         profile: optionalProfile,
@@ -364,9 +369,10 @@ export function registerTools(
     {
       title: "Run a Golutra structured CLI command",
       description:
-        `${mayReadOrWriteAppLabel} Run any supported golutra-cli structured command. Prefer the focused MCP tools when one exists; use this for newly added or less common CLI commands. ${persistedContextNote}`,
+        `${mayReadOrWriteAppLabel} Run a structured command via stdin. Prefer focused tools when available. asynchronous=true returns a requestId for golutra-wait-command; identity-bound chat/Feishu commands require synchronous execution. Never retry an uncertain write with new keys or in another runtime. ${persistedContextNote}`,
       inputSchema: {
         command: structuredCommandSchema,
+        asynchronous: z.boolean().optional(),
         profile: optionalProfile,
         hostKind: optionalHostKind,
         targetOrder: targetOrderSchema,
@@ -377,7 +383,9 @@ export function registerTools(
     async (input) => {
       try {
         const runtimeContext = contextStore.resolveCommandContext(input);
-        const result = await gateway.executeCommand(input.command, runtimeContext);
+        const result = input.asynchronous
+          ? await gateway.submitCommand(input.command, runtimeContext)
+          : await gateway.executeCommand(input.command, runtimeContext);
         return buildToolSuccess(`Ran ${input.command.type}.`, result);
       } catch (error) {
         return buildToolError(error);
@@ -393,6 +401,7 @@ export function registerTools(
         `${readOnlyCliLabel} Read one top-level golutra-cli guide/help page for team building, collaboration, assets, prompt settings, roles, and other agent-facing workflows. ${persistedContextNote}`,
       inputSchema: {
         guide: cliGuideSchema.default("help"),
+        full: z.boolean().optional(),
         profile: optionalProfile,
         hostKind: optionalHostKind,
         targetOrder: targetOrderSchema,
@@ -403,7 +412,7 @@ export function registerTools(
     async (input) => {
       try {
         const runtimeContext = contextStore.resolveCommandContext(input);
-        const result = await gateway.readCliGuide(runtimeContext, input.guide);
+        const result = await gateway.readCliGuide(runtimeContext, input.guide, input.full ?? false);
         return {
           content: [
             {
@@ -787,12 +796,13 @@ export function registerTools(
     {
       title: "Send a Golutra message",
       description:
-        `${writesWorkspaceLabel} Send a Golutra chat message through golutra-cli using a structured chat.send payload. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Legacy single chat.send. Prefer golutra-send-messages for private messages, multiple destinations and replies. Preserve requestId on retries; queued acceptance is not a model reply. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: z.string().trim().min(1),
         senderId: z.string().trim().min(1),
         text: z.string().trim().min(1),
         mentionIds: mentionIdsSchema,
+        requestId: z.string().trim().min(1).optional(),
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile
       }
@@ -806,7 +816,8 @@ export function registerTools(
           conversationId: input.conversationId,
           senderId: input.senderId,
           text: input.text,
-          mentionIds: input.mentionIds
+          mentionIds: input.mentionIds,
+          requestId: input.requestId
         });
         return buildToolSuccess("Sent message.", result);
       } catch (error) {

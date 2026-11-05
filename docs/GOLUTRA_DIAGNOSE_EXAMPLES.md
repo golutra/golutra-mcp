@@ -2,7 +2,11 @@
 
 `golutra-diagnose` is the MCP-side diagnostic tool for separating CLI, workspace, and app connectivity failures.
 
-`golutra-diagnose` 是这个仓库里专门用来区分 CLI、工作区和桌面应用联通问题的诊断工具。
+`golutra-diagnose` 是这个仓库里专门用来区分 CLI、工作区和桌面/Web Host 联通问题的诊断工具。
+
+Run `golutra-cli-info` first when you need the actual CLI path/version, selected profile and Host identity. Unset profile/host selection is delegated to the CLI; MCP does not try another runtime after a failure. New tools require the updated CLI. Bounded waits and 15-minute result rereads require a Host reporting `commandProtocolVersion: 2`; an older Host is not upgraded by installing MCP.
+
+需要确认实际 CLI 路径、版本、profile 和 Host 身份时，先调用 `golutra-cli-info`。未指定的 profile/Host 由 CLI 发现；MCP 不在失败后切换运行环境重试。新增工具需要配套新版 CLI，有限等待与 15 分钟结果重查还需要 Host 返回 `commandProtocolVersion: 2`；安装 MCP 不会自动升级旧 Host。
 
 ## English
 
@@ -77,7 +81,10 @@ If you pass `workspacePath` directly to `golutra-diagnose`, `context.workspacePa
 - `WORKSPACE_PATH_NOT_DIRECTORY`: the provided workspace path exists but is not a directory
 - `APP_NOT_RUNNING_OR_PROFILE_MISMATCH`: the desktop app is not reachable on the expected local IPC endpoint, or the selected profile is wrong
 - `APP_COMMAND_FAILED`: CLI reached the desktop app probe stage, but the app-backed command still failed for another reason
+- `COMMAND_RESULT_UNCONFIRMED`: command input or response was interrupted, or the CLI process timed out; the Host may still be executing the command
 - `APP_PROBE_SKIPPED`: app probe was intentionally skipped because an earlier prerequisite check did not pass
+
+`COMMAND_RESULT_UNCONFIRMED` preserves the underlying error `code` and any returned `requestId`. Never automatically resend a write or switch profiles. For an accepted async request, call `golutra-wait-command` with its original ID and Host. For batch chat, preserve the original request ID, item keys, destinations and text when retrying an unchanged item; inspect every item status because partial failures do not undo successful items.
 
 ### Typical Failure Patterns
 
@@ -169,7 +176,10 @@ If you pass `workspacePath` directly to `golutra-diagnose`, `context.workspacePa
 - `WORKSPACE_PATH_NOT_DIRECTORY`：工作区路径存在，但不是目录
 - `APP_NOT_RUNNING_OR_PROFILE_MISMATCH`：桌面应用未运行，或者当前 profile 配错了
 - `APP_COMMAND_FAILED`：已经进入 app 级探针，但业务命令还是失败了
+- `COMMAND_RESULT_UNCONFIRMED`：命令输入/回包中断或 CLI 进程超时；Host 可能仍在执行
 - `APP_PROBE_SKIPPED`：因为前置条件没过，app 探针被跳过了
+
+`COMMAND_RESULT_UNCONFIRMED` 保留底层错误的 `code` 以及已返回的 `requestId`。不能自动重发写操作或切换 profile；已接收的异步命令在原 Host 用同一 ID 调用 `golutra-wait-command`。批量聊天重试未改动的项时，保留原 requestId、key、目的地和正文；逐项检查 status，部分失败不会撤回已成功的项。
 
 ### 典型排障场景
 

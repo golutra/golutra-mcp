@@ -502,7 +502,8 @@ describe("registerTools", () => {
         profile: "dev",
         timeoutMs: 30_000
       },
-      "team"
+      "team",
+      false
     );
     expect(result).toMatchObject({
       content: [

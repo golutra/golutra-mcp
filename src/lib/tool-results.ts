@@ -58,7 +58,9 @@ function buildErrorContent(error: unknown): Record<string, unknown> {
       args: error.args,
       exitCode: error.exitCode,
       stdout: error.stdout,
-      stderr: error.stderr
+      stderr: error.stderr,
+      errorCode: error.code,
+      requestId: error.requestId
     };
   }
   if (error instanceof Error) {
