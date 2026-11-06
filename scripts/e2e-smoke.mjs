@@ -92,6 +92,7 @@ async function main() {
     const listedTools = await client.listTools();
     const toolNames = listedTools.tools.map((tool) => tool.name);
     assert(toolNames.includes("golutra-set-context"));
+    assert(!toolNames.includes("golutra-send-message"));
     assert(toolNames.includes("golutra-list-skills"));
     assert(toolNames.includes("golutra-diagnose"));
     assert(toolNames.includes("golutra-update-member-name"));

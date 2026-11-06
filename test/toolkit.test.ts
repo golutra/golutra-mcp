@@ -17,6 +17,19 @@ class FakeMcpServer {
 }
 
 describe("registerTools", () => {
+  it("exposes one send tool for a single message and forwards stable retry keys", async () => {
+    const server = new FakeMcpServer();
+    const context = new ContextStore({cliPath: "golutra-cli", workspacePath: "/workspace", timeoutMs: 30000});
+    const sendMessages = vi.fn().mockResolvedValue({requestId: "single", accepted: 1, duplicates: 0, failed: 0, items: [{key: "report", status: "no_targets", messageId: "saved", enqueued: 0}]});
+    registerTools(server as never, context, {sendMessages} as never);
+    expect(server.tools.has("golutra-send-message")).toBe(false);
+    const messages = [{key: "report", text: "done", replyTo: "source"}];
+    const result = await server.tools.get("golutra-send-messages")?.({requestId: "single", messages});
+    expect(sendMessages).toHaveBeenCalledTimes(1);
+    expect(sendMessages.mock.calls[0]?.[1]).toEqual({requestId: "single", messages, senderId: undefined, workspacePath: "/workspace"});
+    expect(result).toMatchObject({structuredContent: {accepted: 1, items: [{status: "no_targets"}]}});
+  });
+
   it("lets golutra-list-skills inherit the stored workspace context", async () => {
     const server = new FakeMcpServer();
     const contextStore = new ContextStore({

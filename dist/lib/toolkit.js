@@ -55,12 +55,6 @@ const writesContextLabel = "Writes MCP context only.";
 const writesWorkspaceLabel = "Writes workspace. Requires running app.";
 const mayReadOrWriteAppLabel = "May read or write workspace/local/store state. Requires running app.";
 const destructiveWorkspaceLabel = "Writes workspace. Destructive or restart operation. Requires explicit confirmation and running app.";
-const mentionIdsSchema = z
-    .array(z.string().trim().min(1))
-    .min(1)
-    .refine((mentionIds) => mentionIds.every((mentionId) => mentionId.trim().toLowerCase() !== "all"), {
-    message: "mentionIds does not allow all"
-});
 const roadmapTaskSchema = z.object({
     id: z.number().int().positive(),
     number: z.string().trim().optional(),
@@ -602,36 +596,6 @@ export function registerTools(server, contextStore, gateway) {
                 beforeId: input.beforeId
             });
             return buildToolSuccess("Listed messages.", result);
-        }
-        catch (error) {
-            return buildToolError(error);
-        }
-    });
-    server.registerTool("golutra-send-message", {
-        title: "Send a Golutra message",
-        description: `${writesWorkspaceLabel} Legacy single chat.send. Prefer golutra-send-messages for private messages, multiple destinations and replies. Preserve requestId on retries; queued acceptance is not a model reply. ${workspaceOverrideNote}`,
-        inputSchema: {
-            conversationId: z.string().trim().min(1),
-            senderId: z.string().trim().min(1),
-            text: z.string().trim().min(1),
-            mentionIds: mentionIdsSchema,
-            requestId: z.string().trim().min(1).optional(),
-            workspacePath: optionalWorkspacePath,
-            profile: optionalProfile
-        }
-    }, async (input) => {
-        try {
-            const workspacePath = contextStore.requireWorkspacePath(input);
-            const runtimeContext = contextStore.resolveCommandContext(input);
-            const result = await gateway.sendMessage(runtimeContext, {
-                workspacePath,
-                conversationId: input.conversationId,
-                senderId: input.senderId,
-                text: input.text,
-                mentionIds: input.mentionIds,
-                requestId: input.requestId
-            });
-            return buildToolSuccess("Sent message.", result);
         }
         catch (error) {
             return buildToolError(error);

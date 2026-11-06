@@ -8,7 +8,7 @@ describe("batch messaging contract", () => {
   it("accepts mixed destinations and rejects ambiguous routes, duplicate keys and oversize keys", () => {
     const privateMessage = { key: "a", text: "hello", to: { memberId: "b" } };
     expect(batchMessagesSchema.safeParse([privateMessage, { key: "c", text: "reply", replyTo: "message" }]).success).toBe(true);
-    for (const messages of [[privateMessage, privateMessage], [{ ...privateMessage, replyTo: "message" }], [{ ...privateMessage, key: "中".repeat(43) }]]) {
+    for (const messages of [[{key: "bad", text: "hello", to: {conversationId: "c", mentionIds: ["all"]}}], [{key: "empty", text: "hello", to: {conversationId: "c", mentionIds: []}}], [privateMessage, privateMessage], [{ ...privateMessage, replyTo: "message" }], [{ ...privateMessage, key: "中".repeat(43) }]]) {
       expect(batchMessagesSchema.safeParse(messages).success).toBe(false);
     }
   });

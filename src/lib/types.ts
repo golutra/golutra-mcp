@@ -144,10 +144,6 @@ export interface ChatMessagesListData {
   messages?: ChatMessageRecord[] | undefined;
 }
 
-export interface ChatSendData {
-  messageId?: string | undefined;
-}
-
 export interface RoadmapResultData {
   workspaceId?: string | undefined;
   workspacePath?: string | undefined;

@@ -1,5 +1,5 @@
 import type { CliJsonRunner } from "./cli-runner.js";
-import type { ChatConversationsListData, ChatMessagesListData, ChatSendData, ChatBatchInput, ChatBatchResult, CommandContextInput, ListSkillsResponse, ProjectMembersConfigListData, RoadmapResultData, RuntimeContextSnapshot, SkillValidationResult, StructuredCommand, StructuredCommandEnvelope } from "./types.js";
+import type { ChatConversationsListData, ChatMessagesListData, ChatBatchInput, ChatBatchResult, CommandContextInput, ListSkillsResponse, ProjectMembersConfigListData, RoadmapResultData, RuntimeContextSnapshot, SkillValidationResult, StructuredCommand, StructuredCommandEnvelope } from "./types.js";
 declare const GOLUTRA_CLI_GUIDES: readonly ["help", "team", "collaboration", "store", "chat", "terminals", "prompt", "agents", "templates", "roadmap", "member", "assistant", "supervisor"];
 type GolutraCliGuide = (typeof GOLUTRA_CLI_GUIDES)[number];
 declare function buildProfileArgs(profile: RuntimeContextSnapshot["profile"]): string[];
@@ -10,7 +10,6 @@ declare function buildSkillsArgs(profile: RuntimeContextSnapshot["profile"], opt
     workspacePath?: string | undefined;
 }): string[];
 declare function buildSkillValidateArgs(profile: RuntimeContextSnapshot["profile"], skillPath: string): string[];
-declare function normalizeMentionIds(mentionIds: string[]): string[];
 export declare class GolutraCliGateway {
     private readonly runner;
     constructor(runner: CliJsonRunner);
@@ -31,14 +30,6 @@ export declare class GolutraCliGateway {
         limit?: number | undefined;
         beforeId?: string | undefined;
     }): Promise<ChatMessagesListData>;
-    sendMessage(runtimeContext: RuntimeContextSnapshot, input: {
-        workspacePath: string;
-        conversationId: string;
-        senderId: string;
-        text: string;
-        mentionIds: string[];
-        requestId?: string | undefined;
-    }): Promise<ChatSendData>;
     sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatBatchResult>;
     readInbox(context: RuntimeContextSnapshot, input: {
         batchId: string;
@@ -173,4 +164,4 @@ export declare class GolutraCliGateway {
     getSkill(runtimeContext: RuntimeContextSnapshot, skillName: string): Promise<Record<string, unknown>>;
     validateSkill(runtimeContext: RuntimeContextSnapshot, skillPath: string): Promise<SkillValidationResult>;
 }
-export { buildCliGuideArgs, buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, GOLUTRA_CLI_GUIDES, normalizeMentionIds };
+export { buildCliGuideArgs, buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, GOLUTRA_CLI_GUIDES };

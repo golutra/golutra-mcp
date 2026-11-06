@@ -219,9 +219,8 @@ Typical examples:
 - `golutra-update-member-automation`
 - `golutra-list-conversations`
 - `golutra-list-messages`
-- `golutra-send-messages` (preferred batch/private/reply entry)
+- `golutra-send-messages` (only member-send entry, for one or many messages)
 - `golutra-read-inbox`
-- `golutra-send-message`
 - `golutra-read-roadmap`
 - `golutra-update-roadmap`
 
@@ -331,24 +330,27 @@ Goal:
 
 Tool:
 
-`golutra-send-message`
+`golutra-send-messages`
 
 Input:
 
 ```json
 {
   "workspacePath": "/workspace-a",
-  "conversationId": "01CHANNEL",
   "senderId": "01USER",
-  "mentionIds": ["01ASSISTANT"],
-  "text": "Please summarize the latest task status."
+  "requestId": "status-single-001",
+  "messages": [{
+    "key": "status",
+    "to": { "conversationId": "01CHANNEL", "mentionIds": ["01ASSISTANT"] },
+    "text": "Please summarize the latest task status."
+  }]
 }
 ```
 
 Goal:
 
-- Send a structured `chat.send` request through `golutra-cli`
-- 通过 `golutra-cli` 发送结构化 `chat.send` 请求
+- Send a structured `chat.send.batch` request through `golutra-cli`
+- 通过 `golutra-cli` 发送结构化 `chat.send.batch` 请求
 
 ### Notes
 
@@ -361,9 +363,9 @@ Goal:
 
 ## Example 5: Batch Private Messages, Channel Messages And Replies
 
-Prefer `golutra-send-messages` for current integrations. A single call submits all items to the selected Host; `queued` means accepted into the member queue, not that a model has finished replying.
+Use `golutra-send-messages` for every member send, including single messages. A single call submits all items to the selected Host; `queued` means accepted into the member queue, not that a model has finished replying.
 
-新集成优先使用 `golutra-send-messages`，一次提交私聊、群聊和回复。`queued` 表示已进入成员队列，不表示模型已经完成回复。
+成员发送统一使用 `golutra-send-messages`，单条同样使用 messages 数组，一次提交私聊、群聊和回复。`queued` 表示已进入成员队列，不表示模型已经完成回复。
 
 Tool: `golutra-send-messages`
 

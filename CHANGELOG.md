@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Remove the legacy `golutra-send-message` tool and client mapping. Use `golutra-send-messages` for one or many private/channel messages and replies.
+- Document coordinated Host/CLI migration, stable retry keys, SQLite requirements and refreshing existing member instructions.
+
 All notable changes to this project will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses Semantic Versioning.

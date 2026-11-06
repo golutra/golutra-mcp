@@ -20,7 +20,8 @@ This repository focuses on protocol translation, context management, diagnostics
 - `golutra-diagnose`
 - `golutra-list-conversations`
 - `golutra-list-messages`
-- `golutra-send-message`
+- `golutra-send-messages`
+- `golutra-read-inbox`
 - `golutra-read-roadmap`
 - `golutra-update-roadmap`
 - `golutra-list-skills`
@@ -35,7 +36,7 @@ This repository focuses on protocol translation, context management, diagnostics
 ### Design Principles
 
 - Do not call Golutra local socket IPC directly from the MCP layer
-- Do not rely on CLI argv fallback for programmatic behavior
+- CLI argv message sending is removed; use structured stdin
 - Keep tool inputs explicit even when defaults exist
 - Keep diagnostics side-effect free where possible
 - Prefer thin wrappers over Golutra's existing stable commands instead of inventing a parallel command model
@@ -61,10 +62,10 @@ This repository focuses on protocol translation, context management, diagnostics
 
 ### Current Limitations
 
-- `workspacePath` must be provided either in the tool call or through `golutra-set-context`
+- Workspace-scoped read/management tools require `workspacePath` in the call or context. Member send/inbox commands may infer it from a verified terminal caller; detached local operators must explicitly supply their own senderId and workspacePath.
 - Golutra-specific permissions, workflow semantics, and mention rules still come from the desktop app and `golutra-cli`
 - This server currently exposes the stable Golutra commands that already exist today:
-  `chat.send`, `chat.conversations.list`, `chat.messages.list`, `roadmap.read`, and `roadmap.update`
+  `chat.send.batch`, `chat.inbox.read`, `chat.conversations.list`, `chat.messages.list`, `roadmap.read`, and `roadmap.update`
 - `golutra-diagnose` uses `skills` as a CLI-level probe and `chat.conversations.list` as an app-level probe; it is not a full health API
 
 ## Prerequisites
@@ -109,7 +110,7 @@ When profile/host are not pinned, the CLI owns discovery. `GOLUTRA_RUNTIME_PROFI
 
 Use the updated CLI with `info` and `--timeout-ms`. `golutra-cli-info` reports CLI path/version and Host instance identity. Protocol v2 Hosts retain completed async results for 15 minutes; `golutra-run-command` with `asynchronous: true` returns a handle for `golutra-wait-command`. Host restart clears handles. Wait timeout and CLI process timeout do not cancel backend execution.
 
-New integrations use stdin, never JSON in argv. Read concise guides first and request `full: true` for field-level references. Prefer `golutra-send-messages` for private/channel messages and explicit replies; use `golutra-read-inbox` to read all frozen inbox pages. Preserve requestId/item keys on retries and inspect partial failures. Existing `golutra-send-message` remains available.
+New integrations use stdin, never JSON in argv. Consult concise guides only when usage is unclear, and request `full: true` for field-level references when needed. Use only `golutra-send-messages` for private/channel messages and explicit replies; use `golutra-read-inbox` to read all frozen inbox pages. Preserve requestId/item keys on retries and inspect partial failures. The old `golutra-send-message` tool is removed. Single messages use a one-item messages array. Update the Host/CLI and MCP together and reload the tool list. If the messaging usage is unclear, read the chat skill with golutra-get-skill (skillName: "chat"); otherwise send directly. Old uncertain sends must be reconciled before using new batch keys; no automatic legacy conversion is performed.
 
 Default CLI discovery order:
 

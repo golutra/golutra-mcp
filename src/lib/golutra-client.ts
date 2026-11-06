@@ -4,7 +4,6 @@ import { CliExecutionError } from "./errors.js";
 import type {
   ChatConversationsListData,
   ChatMessagesListData,
-  ChatSendData,
   ChatBatchInput,
   ChatBatchResult,
   CommandContextInput,
@@ -83,27 +82,6 @@ function buildSkillValidateArgs(
   skillPath: string
 ): string[] {
   return [...buildProfileArgs(profile), "skill-validate", skillPath];
-}
-
-function normalizeMentionIds(mentionIds: string[]): string[] {
-  const uniqueMentionIds = new Set<string>();
-
-  for (const mentionId of mentionIds) {
-    const normalizedId = mentionId.trim();
-    if (!normalizedId) {
-      continue;
-    }
-    if (normalizedId.toLowerCase() === "all") {
-      throw new Error("mentionIds does not allow all");
-    }
-    uniqueMentionIds.add(normalizedId);
-  }
-
-  if (uniqueMentionIds.size === 0) {
-    throw new Error("mentionIds is required");
-  }
-
-  return [...uniqueMentionIds];
 }
 
 function buildTargetEnv(
@@ -230,35 +208,6 @@ export class GolutraCliGateway {
 
     return this.executeCommand<ChatMessagesListData>(
       payload,
-      runtimeContext
-    );
-  }
-
-  async sendMessage(
-    runtimeContext: RuntimeContextSnapshot,
-    input: {
-      workspacePath: string;
-      conversationId: string;
-      senderId: string;
-      text: string;
-      mentionIds: string[];
-      requestId?: string | undefined;
-    }
-  ): Promise<ChatSendData> {
-    const mentionIds = normalizeMentionIds(input.mentionIds);
-
-    return this.executeCommand<ChatSendData>(
-      {
-        type: "chat.send",
-        payload: {
-          workspacePath: input.workspacePath,
-          conversationId: input.conversationId,
-          senderId: input.senderId,
-          text: input.text,
-          mentionIds,
-          ...(input.requestId ? { requestId: input.requestId } : {})
-        }
-      },
       runtimeContext
     );
   }
@@ -965,6 +914,5 @@ export {
   buildSkillValidateArgs,
   buildSkillsArgs,
   buildStructuredRunArgs,
-  GOLUTRA_CLI_GUIDES,
-  normalizeMentionIds
+  GOLUTRA_CLI_GUIDES
 };

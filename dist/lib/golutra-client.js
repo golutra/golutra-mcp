@@ -46,23 +46,6 @@ function buildSkillsArgs(profile, options) {
 function buildSkillValidateArgs(profile, skillPath) {
     return [...buildProfileArgs(profile), "skill-validate", skillPath];
 }
-function normalizeMentionIds(mentionIds) {
-    const uniqueMentionIds = new Set();
-    for (const mentionId of mentionIds) {
-        const normalizedId = mentionId.trim();
-        if (!normalizedId) {
-            continue;
-        }
-        if (normalizedId.toLowerCase() === "all") {
-            throw new Error("mentionIds does not allow all");
-        }
-        uniqueMentionIds.add(normalizedId);
-    }
-    if (uniqueMentionIds.size === 0) {
-        throw new Error("mentionIds is required");
-    }
-    return [...uniqueMentionIds];
-}
 function buildTargetEnv(target) {
     return {
         GOLUTRA_CLI_HOST_KIND: target.hostKind ?? "auto"
@@ -138,20 +121,6 @@ export class GolutraCliGateway {
             }
         };
         return this.executeCommand(payload, runtimeContext);
-    }
-    async sendMessage(runtimeContext, input) {
-        const mentionIds = normalizeMentionIds(input.mentionIds);
-        return this.executeCommand({
-            type: "chat.send",
-            payload: {
-                workspacePath: input.workspacePath,
-                conversationId: input.conversationId,
-                senderId: input.senderId,
-                text: input.text,
-                mentionIds,
-                ...(input.requestId ? { requestId: input.requestId } : {})
-            }
-        }, runtimeContext);
     }
     async sendMessages(context, input) {
         return this.executeCommand({ type: "chat.send.batch", payload: { ...input } }, context);
@@ -517,5 +486,5 @@ export class GolutraCliGateway {
         return this.executeJsonWithRuntimeTargets(runtimeContext, (target) => buildSkillValidateArgs(target.profile, skillPath));
     }
 }
-export { buildCliGuideArgs, buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, GOLUTRA_CLI_GUIDES, normalizeMentionIds };
+export { buildCliGuideArgs, buildProfileArgs, buildSkillValidateArgs, buildSkillsArgs, buildStructuredRunArgs, GOLUTRA_CLI_GUIDES };
 //# sourceMappingURL=golutra-client.js.map

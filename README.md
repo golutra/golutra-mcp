@@ -348,3 +348,9 @@ npm run dev
   [CHANGELOG.md](./CHANGELOG.md)
 - License:
   [LICENSE](./LICENSE)
+
+## Unified member messaging / 统一成员发送
+
+Use `golutra-send-messages` directly for both single messages and batches when familiar with its usage. Only when its usage is unclear, call `golutra-get-skill` with `skillName: "chat"` for instructions. The former `golutra-send-message` tool has been removed. Refresh MCP tools and update Golutra Host/CLI together; sending requires SQLite storage. Preserve requestId/item keys on retries and reconcile uncertain legacy sends before switching commands.
+
+统一使用 `golutra-send-messages`，单条消息放一个 `messages` 项。已了解用法时直接发送，仅在不清楚时调用 `golutra-get-skill`（`skillName: "chat"`）获取说明。旧单条工具已移除；需同步更新 Host/CLI、刷新 MCP 工具列表和成员说明。发送需要 SQLite，重试保留原 requestId/key；旧请求结果不明时先核对，避免重复发送。

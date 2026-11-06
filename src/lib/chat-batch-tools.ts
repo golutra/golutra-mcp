@@ -22,8 +22,8 @@ export const batchMessagesSchema = z.array(batchMessageSchema).min(1).max(128)
 
 export function registerChatBatchTools(server: McpServer, contextStore: ContextStore, gateway: GolutraCliGateway): void {
   server.registerTool("golutra-send-messages", {
-    title: "Send a batch of Golutra messages and replies",
-    description: "Writes workspace. Preferred messaging tool: send up to 128 private/channel messages or replies in one synchronous queue submission. The Host infers member identity when verifiable; local operators must supply senderId and workspacePath. Inspect every items[].status; queued means accepted, not model completion. Partial failures keep successful items. Retry unchanged failed/uncertain items with the same requestId and key; changed content requires a new key. Never auto-retry across runtimes.",
+    title: "Send Golutra messages and replies",
+    description: "Writes workspace. The only member messaging tool: send one or up to 128 private/channel messages or replies in one synchronous queue submission. A single message uses a one-item messages array. Requires a Host using SQLite storage. The Host infers member identity when verifiable; local operators must supply senderId and workspacePath. Inspect every items[].status; queued means accepted, not model completion. Partial failures keep successful items. Retry unchanged failed/uncertain items with the same requestId and key; changed content requires a new key. Never auto-retry across runtimes.",
     inputSchema: {
       requestId: retryKey, messages: batchMessagesSchema, senderId: id.optional(),
       workspacePath: id.optional(), profile: z.enum(["dev", "canary", "stable"]).optional()
