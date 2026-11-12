@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NodeCliJsonRunner } from "../src/lib/cli-runner.js";
 import { CliExecutionError } from "../src/lib/errors.js";
+import { buildToolError } from "../src/lib/tool-results.js";
 
 const runner = new NodeCliJsonRunner();
 const command = (source: string, stdin?: string, timeoutMs = 5000) => ({
@@ -23,6 +24,27 @@ describe("CLI subprocess transport", () => {
 
   it("uses the business error message when the transport envelope has no error", async () => {
     await expect(runner.executeJson(command('console.log(JSON.stringify({ok:false,error:null,result:{status:"error",message:"scope denied"}})); process.exitCode=1;'))).rejects.toThrow("scope denied");
+  });
+
+  it("preserves structured per-item successes and retryFile when partial failure exits one", async () => {
+    const response = {ok:true,retryFile:"/retry.json",result:{status:"ok",data:{accepted:1,failed:1,items:[{key:"a",status:"queued"},{key:"b",status:"failed",error:"missing member"}]}}};
+    try {
+      await runner.executeJson(command(`console.log(${JSON.stringify(JSON.stringify(response))}); process.exitCode=1;`));
+      expect.unreachable("partial failure must be reported");
+    } catch (error) {
+      expect(buildToolError(error)).toMatchObject({isError:true,structuredContent:{retryFile:"/retry.json",response}});
+    }
+  });
+
+  it("retains the saved request after timeout before a final JSON response", async () => {
+    const retryFile = "/a b/中文'\nrequest.json";
+    const diagnostic = JSON.stringify({type:"chat.retry",retryFile});
+    try {
+      await runner.executeJson(command(`console.error(${JSON.stringify(diagnostic)}); setInterval(()=>{},1000);`,undefined,250));
+      expect.unreachable("child must time out");
+    } catch (error) {
+      expect(buildToolError(error)).toMatchObject({isError:true,structuredContent:{errorCode:"CLI_PROCESS_TIMEOUT",retryFile}});
+    }
   });
 
   it("reports spawn failure without hanging or throwing an unhandled stdin error", async () => {

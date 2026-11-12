@@ -17,17 +17,17 @@ class FakeMcpServer {
 }
 
 describe("registerTools", () => {
-  it("exposes one send tool for a single message and forwards stable retry keys", async () => {
+  it("exposes one send tool for a single text and preserves the CLI response", async () => {
     const server = new FakeMcpServer();
     const context = new ContextStore({cliPath: "golutra-cli", workspacePath: "/workspace", timeoutMs: 30000});
-    const sendMessages = vi.fn().mockResolvedValue({requestId: "single", accepted: 1, duplicates: 0, failed: 0, items: [{key: "report", status: "no_targets", messageId: "saved", enqueued: 0}]});
+    const response = {ok:true,retryFile:"/saved.json",result:{status:"ok",data:{accepted:1,failed:0,items:[{status:"no_targets"}]}}};
+    const sendMessages = vi.fn().mockResolvedValue(response);
     registerTools(server as never, context, {sendMessages} as never);
     expect(server.tools.has("golutra-send-message")).toBe(false);
-    const messages = [{key: "report", text: "done", replyTo: "source"}];
-    const result = await server.tools.get("golutra-send-messages")?.({requestId: "single", messages});
+    const result = await server.tools.get("golutra-send-messages")?.({text:"done"});
     expect(sendMessages).toHaveBeenCalledTimes(1);
-    expect(sendMessages.mock.calls[0]?.[1]).toEqual({requestId: "single", messages, senderId: undefined, workspacePath: "/workspace"});
-    expect(result).toMatchObject({structuredContent: {accepted: 1, items: [{status: "no_targets"}]}});
+    expect(sendMessages.mock.calls[0]?.[1]).toEqual({text:"done", workspacePath: "/workspace"});
+    expect(result).toMatchObject({structuredContent: response});
   });
 
   it("lets golutra-list-skills inherit the stored workspace context", async () => {

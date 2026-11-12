@@ -6,6 +6,8 @@ export declare class CliExecutionError extends Error {
     readonly stderr: string;
     readonly code: string | undefined;
     readonly requestId: string | undefined;
+    readonly response: Record<string, unknown> | undefined;
+    readonly retryFile: string | undefined;
     constructor(options: {
         message: string;
         cliPath: string;

@@ -199,7 +199,7 @@ describe("GolutraCliGateway", () => {
 
     await gateway.publishEditedFriendTemplateRepository(
       {
-        cliPath: "golutra-cli",
+        cliPath: "/build/golutra-cli",
         profile: "dev",
         timeoutMs: 10_000
       },
@@ -244,7 +244,7 @@ describe("GolutraCliGateway", () => {
 
     const result = await gateway.readCliGuide(
       {
-        cliPath: "golutra-cli",
+        cliPath: "/build/golutra-cli",
         profile: "dev",
         timeoutMs: 10_000
       },
@@ -256,7 +256,7 @@ describe("GolutraCliGateway", () => {
       text: "team guide"
     });
     expect(executeText).toHaveBeenCalledWith({
-      cliPath: "golutra-cli",
+      cliPath: "/build/golutra-cli",
       args: ["--profile", "dev", "team"],
       env: {
         GOLUTRA_CLI_HOST_KIND: "auto"

@@ -84,7 +84,7 @@ If you pass `workspacePath` directly to `golutra-diagnose`, `context.workspacePa
 - `COMMAND_RESULT_UNCONFIRMED`: command input or response was interrupted, or the CLI process timed out; the Host may still be executing the command
 - `APP_PROBE_SKIPPED`: app probe was intentionally skipped because an earlier prerequisite check did not pass
 
-`COMMAND_RESULT_UNCONFIRMED` preserves the underlying error `code` and any returned `requestId`. Never automatically resend a write or switch profiles. For an accepted async request, call `golutra-wait-command` with its original ID and Host. For batch chat, preserve the original request ID, item keys, destinations and text when retrying an unchanged item; inspect every item status because partial failures do not undo successful items.
+`COMMAND_RESULT_UNCONFIRMED` preserves the underlying error `code` and any returned `requestId`. Never automatically resend a write or switch profiles. For accepted async requests, call `golutra-wait-command` with the original ID and Host. For chat, call `golutra-send-messages` with the returned `retryFile` and the same profile/Host; inspect every item in the preserved response. No retry file means the uncertain send must first be reconciled. `CLI_CHAT_CAPABILITY_REQUIRED` means CLI/Host must be updated together; `CLI_PATH_REQUIRED` means dev/canary needs its explicitly configured absolute CLI path.
 
 ### Typical Failure Patterns
 
@@ -179,7 +179,7 @@ If you pass `workspacePath` directly to `golutra-diagnose`, `context.workspacePa
 - `COMMAND_RESULT_UNCONFIRMED`：命令输入/回包中断或 CLI 进程超时；Host 可能仍在执行
 - `APP_PROBE_SKIPPED`：因为前置条件没过，app 探针被跳过了
 
-`COMMAND_RESULT_UNCONFIRMED` 保留底层错误的 `code` 以及已返回的 `requestId`。不能自动重发写操作或切换 profile；已接收的异步命令在原 Host 用同一 ID 调用 `golutra-wait-command`。批量聊天重试未改动的项时，保留原 requestId、key、目的地和正文；逐项检查 status，部分失败不会撤回已成功的项。
+`COMMAND_RESULT_UNCONFIRMED` 保留底层错误的 `code` 及已返回的 `requestId`。不能自动重发写操作或切换 profile；异步命令在原 Host 用同一 ID 调用 `golutra-wait-command`。聊天通过同一发送工具填写原 retryFile 重试，逐项检查保留的结果；没有凭据且结果不确定时先核对，不重建短请求。`CLI_CHAT_CAPABILITY_REQUIRED` 要求同步更新 CLI/Host，`CLI_PATH_REQUIRED` 要求为 dev/canary 明确配置配套 CLI 绝对路径。
 
 ### 典型排障场景
 

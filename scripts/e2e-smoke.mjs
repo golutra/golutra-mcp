@@ -101,6 +101,14 @@ async function main() {
     for (const tool of ["golutra-send-messages", "golutra-read-inbox", "golutra-cli-info", "golutra-wait-command"]) {
       assert(toolNames.includes(tool));
     }
+    const sendSchema = listedTools.tools.find(tool => tool.name === "golutra-send-messages").inputSchema;
+    assert(sendSchema.properties.text);
+    assert(sendSchema.properties.retryFile);
+    assert(!sendSchema.required?.includes("requestId"));
+    assert(!sendSchema.required?.includes("messages"));
+    const inboxSchema = listedTools.tools.find(tool => tool.name === "golutra-read-inbox").inputSchema;
+    assert(!inboxSchema.properties.cursor);
+    assert(!inboxSchema.required?.includes("batchId"));
 
     const setContext = ensureToolSuccess(
       "golutra-set-context",
@@ -127,6 +135,9 @@ async function main() {
     assert.equal(info.ok, true);
     assert.equal(info.cliPath, contextArgs.cliPath);
     assert.equal(typeof info.host.runtimeInstanceId, "string");
+    for (const capability of ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"]) {
+      assert(info.capabilities.includes(capability), `missing CLI capability: ${capability}`);
+    }
     if (contextArgs.profile) { assert.equal(info.profile, contextArgs.profile); }
 
     const listSkills = ensureToolSuccess(

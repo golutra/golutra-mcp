@@ -167,7 +167,7 @@ export function classifyAppProbeFailure(error, runtimeContext) {
             ok: false, reasonCode: "COMMAND_RESULT_UNCONFIRMED",
             message: "The command outcome is unconfirmed; the Host may still be executing it.",
             error: toStructuredError(error),
-            nextSteps: ["Check the original Host and request ID. Do not automatically resend writes or switch profiles.", "For async work retry wait with the same requestId; for chat retries preserve the original requestId and item keys."]
+            nextSteps: ["Check the original Host and request ID. Do not automatically resend writes or switch profiles.", "For async work retry wait with the same requestId; for chat use the returned retryFile with the original profile/Host. If it is unavailable, reconcile the uncertain send first."]
         };
     }
     // 这里的判断优先看 IPC 连接失败特征，避免把“桌面端没启动”误报成普通业务错误。

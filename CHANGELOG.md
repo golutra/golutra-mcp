@@ -1,22 +1,25 @@
 # Changelog
 
-## Unreleased
-
-- Remove the legacy `golutra-send-message` tool and client mapping. Use `golutra-send-messages` for one or many private/channel messages and replies.
-- Document coordinated Host/CLI migration, stable retry keys, SQLite requirements and refreshing existing member instructions.
-
 All notable changes to this project will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
-## [Unreleased]
+## [0.1.5] - 2026-11-13
+
+This release changes the messaging tool contract. Refresh the client's tool list and update Golutra CLI and Host together. Use `golutra-send-messages` with `text`, `messages`, or `retryFile`; inspect `result.data.items` on success and `response` on failure. The removed singular send tool and inbox cursor are not supported.
 
 ### Changed
 
+- Simplify `golutra-send-messages`: use `text` for a single message, `messages` for a batch, or `retryFile` to retry the saved original request. Delegate identity, reply-source inference and retry keys to CLI/Host.
+- `golutra-read-inbox` defaults to the current verified inbox and delegates all pagination to the CLI. Remove the cursor argument.
+- Successful sends now return the CLI envelope (`result.data.items`, `retryFile`) instead of a flat batch result. Failures preserve the complete CLI JSON in `response` and expose `retryFile`, including a process timeout after the CLI saved its request. Require CLI capabilities instead of guessing support from the version number.
+- Publish the complete concise input schema to MCP clients and validate mutually exclusive send/retry modes at the call boundary. Document environment forwarding for clients such as Codex that filter inherited member variables.
+- dev/canary requires a configured absolute CLI path; updated member terminals inherit their Host's paired path. Stable installation discovery remains available.
+- Remove the legacy `golutra-send-message` tool and client mapping. Refresh the MCP tool list and update CLI/Host together; sending requires SQLite storage.
 - Send structured commands through stdin and preserve CLI failure codes/request IDs. Reap timed-out child processes; a timeout does not cancel Host execution.
 - Delegate runtime discovery to the CLI. Remove automatic desktop/server and stable/dev replay; legacy `targetOrder` accepts only one explicit target.
 - Add `golutra-send-messages`, `golutra-read-inbox`, `golutra-cli-info`, and `golutra-wait-command`; support async submission on `golutra-run-command` and complete guide references with `full: true`.
-- Preserve batch partial failures and stable retry keys. Existing single-message tools remain available with optional `requestId`.
+- Preserve batch partial failures and stable retry keys in the saved request; never replay across runtimes.
 - Requires the updated Golutra CLI with `info` and `--timeout-ms`. Repeatable async results require command protocol v2 on the Host.
 
 ## [0.1.4] - 2026-05-07

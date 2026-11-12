@@ -1,5 +1,5 @@
 import type { CliJsonRunner } from "./cli-runner.js";
-import type { ChatConversationsListData, ChatMessagesListData, ChatBatchInput, ChatBatchResult, CommandContextInput, ListSkillsResponse, ProjectMembersConfigListData, RoadmapResultData, RuntimeContextSnapshot, SkillValidationResult, StructuredCommand, StructuredCommandEnvelope } from "./types.js";
+import type { ChatConversationsListData, ChatMessagesListData, ChatBatchInput, ChatSendResponse, CommandContextInput, ListSkillsResponse, ProjectMembersConfigListData, RoadmapResultData, RuntimeContextSnapshot, SkillValidationResult, StructuredCommand, StructuredCommandEnvelope } from "./types.js";
 declare const GOLUTRA_CLI_GUIDES: readonly ["help", "team", "collaboration", "store", "chat", "terminals", "prompt", "agents", "templates", "roadmap", "member", "assistant", "supervisor"];
 type GolutraCliGuide = (typeof GOLUTRA_CLI_GUIDES)[number];
 declare function buildProfileArgs(profile: RuntimeContextSnapshot["profile"]): string[];
@@ -12,6 +12,7 @@ declare function buildSkillsArgs(profile: RuntimeContextSnapshot["profile"], opt
 declare function buildSkillValidateArgs(profile: RuntimeContextSnapshot["profile"], skillPath: string): string[];
 export declare class GolutraCliGateway {
     private readonly runner;
+    private chatCompatibility;
     constructor(runner: CliJsonRunner);
     private executeJsonWithRuntimeTargets;
     private executeTextWithRuntimeTargets;
@@ -30,10 +31,11 @@ export declare class GolutraCliGateway {
         limit?: number | undefined;
         beforeId?: string | undefined;
     }): Promise<ChatMessagesListData>;
-    sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatBatchResult>;
+    private requireChatSupport;
+    sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatSendResponse>;
+    retryMessages(context: RuntimeContextSnapshot, retryFile: string): Promise<ChatSendResponse>;
     readInbox(context: RuntimeContextSnapshot, input: {
-        batchId: string;
-        cursor?: number | undefined;
+        batchId?: string | undefined;
         senderId?: string | undefined;
         workspacePath?: string | undefined;
     }): Promise<Record<string, unknown>>;

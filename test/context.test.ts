@@ -39,6 +39,7 @@ describe("ContextStore", () => {
 
   it("accepts one legacy target and rejects cross-runtime replay configurations", () => {
     const initial = createInitialContext({
+      GOLUTRA_CLI_PATH: "/build/golutra-cli",
       GOLUTRA_TARGET_ORDER: "dev:web"
     });
 
@@ -52,7 +53,7 @@ describe("ContextStore", () => {
 
   it("lets an explicit profile override a stored custom target order", () => {
     const store = new ContextStore({
-      cliPath: "golutra-cli",
+      cliPath: "/build/golutra-cli",
       targetOrder: [{ profile: "stable", hostKind: "desktop" }],
       timeoutMs: 30_000
     });
@@ -79,6 +80,18 @@ describe("ContextStore", () => {
     );
 
     expect(cliPath).toBe("/custom/golutra-cli");
+  });
+
+  it("never selects an installed or bare CLI implicitly for dev, including per-call overrides", () => {
+    const initial = createInitialContext({GOLUTRA_RUNTIME_PROFILE:"dev"});
+    expect(() => resolveRuntimeTargets(initial)).toThrow("CLI_PATH_REQUIRED");
+    const store = new ContextStore(initial);
+    expect(() => resolveRuntimeTargets(store.resolveCommandContext({profile:"canary"}))).toThrow("CLI_PATH_REQUIRED");
+    expect(() => resolveRuntimeTargets(store.resolveCommandContext({cliPath:"golutra-cli"}))).toThrow("CLI_PATH_REQUIRED");
+    expect(resolveRuntimeTargets(store.resolveCommandContext({cliPath:"/build/golutra-cli"}))).toEqual([{profile:"dev",hostKind:undefined}]);
+    expect(store.getSnapshot().cliPathAutoDetected).toBe(true);
+    expect(store.update({cliPath:"/build/golutra-cli"}).cliPathAutoDetected).toBeUndefined();
+    expect(store.reset().cliPathAutoDetected).toBe(true);
   });
 
   it("auto-discovers the default macOS app-bundled CLI when present", () => {

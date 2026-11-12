@@ -337,20 +337,15 @@ Input:
 ```json
 {
   "workspacePath": "/workspace-a",
-  "senderId": "01USER",
-  "requestId": "status-single-001",
-  "messages": [{
-    "key": "status",
-    "to": { "conversationId": "01CHANNEL", "mentionIds": ["01ASSISTANT"] },
-    "text": "Please summarize the latest task status."
-  }]
+  "to": { "conversationId": "01CHANNEL", "mentionIds": ["01ASSISTANT"] },
+  "text": "Please summarize the latest task status."
 }
 ```
 
 Goal:
 
-- Send a structured `chat.send.batch` request through `golutra-cli`
-- 通过 `golutra-cli` 发送结构化 `chat.send.batch` 请求
+- Let `golutra-cli chat send --stdin` prepare and submit the verified request
+- 通过 CLI 简洁入口补齐并发送；没有成员上下文的外部客户端按错误补充本人信息
 
 ### Notes
 
@@ -365,28 +360,22 @@ Goal:
 
 Use `golutra-send-messages` for every member send, including single messages. A single call submits all items to the selected Host; `queued` means accepted into the member queue, not that a model has finished replying.
 
-成员发送统一使用 `golutra-send-messages`，单条同样使用 messages 数组，一次提交私聊、群聊和回复。`queued` 表示已进入成员队列，不表示模型已经完成回复。
+成员发送统一使用 `golutra-send-messages`，单条填 text，多条填 messages，一次提交私聊、群聊和回复。`queued` 表示已进入成员队列，不表示模型已经完成回复。
 
 Tool: `golutra-send-messages`
 
 ```json
 {
-  "workspacePath": "/workspace-a",
-  "senderId": "01USER",
-  "requestId": "status-round-001",
   "messages": [
     {
-      "key": "notify-a",
       "to": { "memberId": "01ASSISTANT" },
       "text": "Please summarize your latest task status."
     },
     {
-      "key": "channel-update",
       "to": { "conversationId": "01CHANNEL", "mentionIds": ["01ASSISTANT"] },
       "text": "Please review the current plan."
     },
     {
-      "key": "answer-original",
       "replyTo": "01SOURCE_MESSAGE",
       "text": "The requested verification is complete."
     }
@@ -394,11 +383,10 @@ Tool: `golutra-send-messages`
 }
 ```
 
-- Supply exactly one destination per item: `to.memberId`, `to.conversationId` with explicit `mentionIds`, or `replyTo`. Use the actual source message ID for replies.
-- Check `items[].status` even when the batch was accepted. A partial failure preserves successes. Retry an unchanged failed or uncertain item with the same `requestId` and `key`; changed text or destination needs a new key.
-- Verified member processes may omit `senderId` and `workspacePath` for Host inference. An external local operator must supply them; supplying an ID does not bypass identity checks or grant inbox access.
-- When a member receives `GOLUTRA_INBOX`, use `golutra-read-inbox` with its `batchId`, starting at `cursor: 0`, then follow `nextCursor` until `complete: true`. Reply using the original message IDs.
-- 每条只能指定一种目的地；`replyTo` 使用收到的原消息 ID，不使用会话 ID。
-- 必须检查逐项结果。重试内容未变的失败/不确定项时保持 `requestId + key` 不变；修改正文或目的地后使用新 key，避免幂等冲突。
-- 可信成员进程可由 Host 推断身份与工作区；外部本机操作员应显式传入。声明 senderId 不能绕过身份校验或取得成员收件箱权限。
-- 收到 `GOLUTRA_INBOX` 时，从 cursor 0 读取该 batchId 的完整分页，直到 complete，再按原消息 ID 回复。
+- A unique current source allows `{ "text": "Done." }`. Otherwise specify `to` or `replyTo`, never both. Do not guess message IDs.
+- Inspect `result.data.items` on success and `response.result.data.items` on structured failure. Partial failures preserve successful items.
+- Retry through the same tool with `{ "retryFile": "<returned path>" }` on the same profile/Host. Do not combine retryFile with changed text, identities or workspace overrides.
+- `golutra-read-inbox` normally takes `{}` and returns the complete frozen inbox. Multiple sources require an explicit original messageId for each reply.
+- The Host supplies verified member context. External local operators may need senderId, workspacePath and requestId as requested by an error; declaring them does not grant access to a member inbox.
+- 当前来源唯一可只填正文；多来源先读完整收件，再选原消息 replyTo。正文之外只补必要的目标或错误要求的信息。
+- 超时或部分失败使用原 retryFile；没有凭据且结果不确定时先核对，不自动重新发送。MCP 不生成请求键、不翻页、不切换环境重发。

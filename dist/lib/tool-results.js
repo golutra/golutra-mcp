@@ -40,10 +40,11 @@ function buildErrorContent(error) {
             cliPath: error.cliPath,
             args: error.args,
             exitCode: error.exitCode,
-            stdout: error.stdout,
+            ...(error.response ? { response: error.response } : { stdout: error.stdout }),
             stderr: error.stderr,
             errorCode: error.code,
-            requestId: error.requestId
+            requestId: error.requestId,
+            ...(error.retryFile ? { retryFile: error.retryFile } : {})
         };
     }
     if (error instanceof Error) {

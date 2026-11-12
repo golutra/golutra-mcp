@@ -8,6 +8,7 @@ export interface GolutraRuntimeTarget {
 }
 export interface RuntimeContextSnapshot {
     cliPath: string;
+    cliPathAutoDetected?: boolean | undefined;
     profile?: GolutraProfile | undefined;
     hostKind?: GolutraHostKind | undefined;
     targetOrder?: GolutraRuntimeTarget[] | undefined;
@@ -42,7 +43,7 @@ export interface StructuredCommandEnvelope {
     error?: string | null | undefined;
 }
 export interface ChatBatchMessage {
-    key: string;
+    key?: string | undefined;
     text: string;
     to?: {
         memberId?: string;
@@ -52,10 +53,18 @@ export interface ChatBatchMessage {
     replyTo?: string | undefined;
 }
 export interface ChatBatchInput {
-    requestId: string;
-    messages: ChatBatchMessage[];
+    requestId?: string | undefined;
+    batchId?: string | undefined;
+    text?: string | undefined;
+    to?: ChatBatchMessage["to"];
+    replyTo?: string | undefined;
+    key?: string | undefined;
+    messages?: ChatBatchMessage[] | undefined;
     workspacePath?: string | undefined;
     senderId?: string | undefined;
+}
+export interface ChatSendResponse extends StructuredCommandEnvelope {
+    retryFile?: string | undefined;
 }
 export interface ChatBatchResult {
     requestId: string;

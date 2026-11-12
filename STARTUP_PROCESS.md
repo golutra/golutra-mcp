@@ -8,7 +8,7 @@ This document contains the setup, startup, build, validation, local integration 
 
 - MCP clients talk to `golutra-mcp` over `stdio`
 - `golutra-mcp` talks to `golutra-cli` using structured JSON commands
-- `golutra-cli` talks to the running Golutra desktop instance through local IPC
+- `golutra-cli` talks to the selected Golutra desktop/Web Host through local IPC
 
 This repository focuses on protocol translation, context management, diagnostics, and tool ergonomics instead of duplicating Golutra transport logic.
 
@@ -37,7 +37,7 @@ This repository focuses on protocol translation, context management, diagnostics
 
 - Do not call Golutra local socket IPC directly from the MCP layer
 - CLI argv message sending is removed; use structured stdin
-- Keep tool inputs explicit even when defaults exist
+- Let the CLI/Host fill verified context; require explicit destinations only when they cannot be determined
 - Keep diagnostics side-effect free where possible
 - Prefer thin wrappers over Golutra's existing stable commands instead of inventing a parallel command model
 
@@ -92,7 +92,7 @@ It still needs more real-world validation across MCP hosts, operating systems, a
 ## Environment Variables
 
 - `GOLUTRA_CLI_PATH`
-  Default: auto-discover a platform-specific `golutra-cli` install when available, otherwise fall back to the platform command name from `PATH`
+  Paired CLI executable path, without shell quoting. Required as an absolute path for dev/canary; inherited automatically inside updated member terminals. Stable can discover an installation or use PATH when unset.
 - `GOLUTRA_PROFILE`
   Optional Golutra runtime profile: `dev`, `canary`, or `stable`
 - `GOLUTRA_CLI_HOST_KIND`
@@ -110,7 +110,25 @@ When profile/host are not pinned, the CLI owns discovery. `GOLUTRA_RUNTIME_PROFI
 
 Use the updated CLI with `info` and `--timeout-ms`. `golutra-cli-info` reports CLI path/version and Host instance identity. Protocol v2 Hosts retain completed async results for 15 minutes; `golutra-run-command` with `asynchronous: true` returns a handle for `golutra-wait-command`. Host restart clears handles. Wait timeout and CLI process timeout do not cancel backend execution.
 
-New integrations use stdin, never JSON in argv. Consult concise guides only when usage is unclear, and request `full: true` for field-level references when needed. Use only `golutra-send-messages` for private/channel messages and explicit replies; use `golutra-read-inbox` to read all frozen inbox pages. Preserve requestId/item keys on retries and inspect partial failures. The old `golutra-send-message` tool is removed. Single messages use a one-item messages array. Update the Host/CLI and MCP together and reload the tool list. If the messaging usage is unclear, read the chat skill with golutra-get-skill (skillName: "chat"); otherwise send directly. Old uncertain sends must be reconciled before using new batch keys; no automatic legacy conversion is performed.
+Chat tools reuse `golutra-cli chat send --stdin`, `chat inbox --stdin`, and `chat send --retry <path>`. Other structured commands use `run --stdin`; JSON is never placed in argv. Send one message with `text`, a batch with `messages`, or retry the saved original request with `retryFile`. Add `to` or `replyTo` only when needed; only add other context if requested by a CLI error. `golutra-read-inbox` normally takes no arguments and returns all pages; cursor is no longer a tool argument. Read chat help only when unclear and follow the current MCP input schema.
+
+Success preserves the CLI envelope with `result.data.items` and `retryFile`. On failure, `response` retains the full CLI JSON and `retryFile` is also exposed directly. The CLI emits a JSON stderr diagnostic `{ "type": "chat.retry", "retryFile": "..." }` before sending, so a killed CLI can still report the saved request. Never turn timeout into a new send or switch runtimes. CLI and Host must both be updated; new MCP checks the capabilities `chatSendDraft`, `chatRetryFile`, `chatInboxAllPages`, `chatRetryDiagnostic`. Failed checks are not cached. Successful checks are reused for the same CLI/profile/Host configuration; restart MCP after replacing its CLI binary.
+
+New Golutra member terminals inherit the paired absolute `GOLUTRA_CLI_PATH` from the Host, including MCP children. Standalone dev/canary clients must configure an absolute path to their build via that environment variable or `golutra-set-context`; automatic installed-program discovery is rejected before execution in these profiles. Stable can still use the installation discovery below. The Node runner uses a program path and argument array, not a shell command: do not add shell quoting to `cliPath`.
+
+Some MCP clients filter inherited environment variables. In that case, explicitly forward the existing `GOLUTRA_CLI_PATH`, `GOLUTRA_RUNTIME_PROFILE`, `GOLUTRA_CLI_HOST_KIND`, `GOLUTRA_COMMAND_IPC_ADDR`, `GOLUTRA_COMMAND_IPC_PATH`, and `GOLUTRA_COMMAND_SCOPE_TOKEN` from the member process. Forward variable names; do not copy a member token into shared configuration. Without these, a client may discover the installed CLI or lose the member's verified context. A standalone client has no member token to forward and must follow the local-operator contract.
+
+For Codex member clients, the MCP configuration can forward them with:
+
+```toml
+[mcp_servers.golutra]
+command = "golutra-mcp"
+env_vars = ["GOLUTRA_CLI_PATH", "GOLUTRA_RUNTIME_PROFILE", "GOLUTRA_CLI_HOST_KIND", "GOLUTRA_COMMAND_IPC_ADDR", "GOLUTRA_COMMAND_IPC_PATH", "GOLUTRA_COMMAND_SCOPE_TOKEN"]
+```
+
+Restart the member/client after updating its MCP configuration, then use `golutra-get-context` and `golutra-cli-info` to verify the paired path and dev/stable target before sending.
+
+Each member client must launch its own stdio MCP process as a descendant of that member. The executable and configuration can be shared; the process identity and inherited scope cannot. Host verifies the actual caller, rather than inferring a sender from a display name or a stored default workspace. A detached shared runner cannot automatically represent every member. `golutra-get-context` and `golutra-cli-info` verify runtime selection, not member identity; verify identity using the member's inbox and persisted send results.
 
 Default CLI discovery order:
 

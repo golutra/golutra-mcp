@@ -5,7 +5,7 @@ import type {
   ChatConversationsListData,
   ChatMessagesListData,
   ChatBatchInput,
-  ChatBatchResult,
+  ChatSendResponse,
   CommandContextInput,
   ListSkillsResponse,
   ProjectMembersConfigListData,
@@ -93,19 +93,22 @@ function buildTargetEnv(
 }
 
 export class GolutraCliGateway {
+  private chatCompatibility: { key: string; check: Promise<void> } | undefined;
+
   constructor(private readonly runner: CliJsonRunner) {}
 
   private async executeJsonWithRuntimeTargets<T>(
     runtimeContext: RuntimeContextSnapshot,
     buildArgs: (target: GolutraRuntimeTarget) => string[],
-    stdin?: string
+    stdin?: string,
+    processTimeoutMs = runtimeContext.timeoutMs + 1500
   ): Promise<T> {
     const target = resolveRuntimeTargets(runtimeContext)[0] ?? {};
     return this.runner.executeJson<T>({
       cliPath: runtimeContext.cliPath,
       args: buildArgs(target),
       env: buildTargetEnv(target),
-      timeoutMs: runtimeContext.timeoutMs + 1500,
+      timeoutMs: processTimeoutMs,
       stdin
     });
   }
@@ -212,14 +215,60 @@ export class GolutraCliGateway {
     );
   }
 
-  async sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatBatchResult> {
-    return this.executeCommand<ChatBatchResult>({ type: "chat.send.batch", payload: { ...input } }, context);
+  private async requireChatSupport(context: RuntimeContextSnapshot): Promise<void> {
+    const key = JSON.stringify([context.cliPath, resolveRuntimeTargets(context)]);
+    if (this.chatCompatibility?.key !== key) {
+      const check = this.readCliInfo(context).then(info => {
+        const required = ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"];
+        const missing = required.filter(capability => !Array.isArray(info.capabilities) || !info.capabilities.includes(capability));
+        if (missing.length) {
+          throw new CliExecutionError({
+            message: `Update Golutra CLI and Host together, then set cliPath to the paired executable. Missing CLI capabilities: ${missing.join(", ")}. No message was sent.`,
+            code: "CLI_CHAT_CAPABILITY_REQUIRED", cliPath: context.cliPath, args: ["info", "--json"], exitCode: 0,
+            stdout: JSON.stringify(info)
+          });
+        }
+      });
+      this.chatCompatibility = { key, check };
+    }
+    const current = this.chatCompatibility;
+    try { await current.check; }
+    catch (error) {
+      // 只缓存成功的能力检查；更新配置或修复 CLI 后可重查，不能自动换程序重发。
+      if (this.chatCompatibility === current) { this.chatCompatibility = undefined; }
+      throw error;
+    }
+  }
+
+  async sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatSendResponse> {
+    await this.requireChatSupport(context);
+    return this.executeJsonWithRuntimeTargets(context, target => [
+      ...buildProfileArgs(target.profile), "chat", "send", "--stdin", "--timeout-ms", String(context.timeoutMs)
+    ], JSON.stringify(input), context.timeoutMs * 2 + 1500);
+  }
+
+  async retryMessages(context: RuntimeContextSnapshot, retryFile: string): Promise<ChatSendResponse> {
+    await this.requireChatSupport(context);
+    return this.executeJsonWithRuntimeTargets(context, target => [
+      ...buildProfileArgs(target.profile), "chat", "send", "--retry", retryFile, "--timeout-ms", String(context.timeoutMs)
+    ]);
   }
 
   async readInbox(context: RuntimeContextSnapshot, input: {
-    batchId: string; cursor?: number | undefined; senderId?: string | undefined; workspacePath?: string | undefined;
+    batchId?: string | undefined; senderId?: string | undefined; workspacePath?: string | undefined;
   }): Promise<Record<string, unknown>> {
-    return this.executeCommand({ type: "chat.inbox.read", payload: { ...input } }, context);
+    await this.requireChatSupport(context);
+    const response = await this.executeJsonWithRuntimeTargets<StructuredCommandEnvelope>(context, target => [
+      ...buildProfileArgs(target.profile), "chat", "inbox", "--stdin", "--timeout-ms", String(context.timeoutMs)
+    ], JSON.stringify(input));
+    if (!response.ok || response.result?.status !== "ok" || !response.result.data || typeof response.result.data !== "object") {
+      throw new Error(response.error ?? response.result?.message ?? "CLI returned no complete inbox");
+    }
+    const data = response.result.data as Record<string, unknown>;
+    if (data.complete !== true || data.nextCursor != null) {
+      throw new Error("CLI_INBOX_INCOMPLETE: the CLI did not return a complete frozen inbox; update the paired CLI and Host");
+    }
+    return data;
   }
 
   async readCliInfo(context: RuntimeContextSnapshot): Promise<Record<string, unknown>> {

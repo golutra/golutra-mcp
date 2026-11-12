@@ -28,6 +28,11 @@ function extractErrorMessage(parsed: unknown): string | undefined {
   ) {
     return parsed.result.message;
   }
+  if ("result" in parsed && parsed.result && typeof parsed.result === "object" &&
+      "data" in parsed.result && parsed.result.data && typeof parsed.result.data === "object" &&
+      "failed" in parsed.result.data && typeof parsed.result.data.failed === "number" && parsed.result.data.failed > 0) {
+    return `${parsed.result.data.failed} message(s) failed; inspect the preserved item results and retryFile`;
+  }
   return undefined;
 }
 

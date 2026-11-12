@@ -90,11 +90,15 @@ function validateLegacyTargetOrder(targets) {
     return targets;
 }
 export function resolveRuntimeTargets(context) {
-    if (context.targetOrder && context.targetOrder.length > 0) {
-        return validateLegacyTargetOrder(context.targetOrder) ?? [];
+    const targets = context.targetOrder && context.targetOrder.length > 0
+        ? validateLegacyTargetOrder(context.targetOrder) ?? []
+        : [{ profile: context.profile, hostKind: context.hostKind }];
+    if (targets.some(target => target.profile && target.profile !== "stable") &&
+        (context.cliPathAutoDetected || !path.isAbsolute(context.cliPath))) {
+        throw new Error("CLI_PATH_REQUIRED: dev/canary needs an explicit absolute GOLUTRA_CLI_PATH or golutra-set-context cliPath pointing to that build. Installed CLI auto-discovery is only for stable.");
     }
     // 未指定的 profile/Host 交给 CLI 解析，不能在 MCP 再做一套环境发现和重放。
-    return [{ profile: context.profile, hostKind: context.hostKind }];
+    return targets;
 }
 function getDefaultCliCommand(platform) {
     return platform === "win32" ? "golutra-cli.exe" : "golutra-cli";
@@ -156,6 +160,7 @@ export function resolveDefaultCliPath(env, options = {}) {
 export function createInitialContext(env) {
     const context = {
         cliPath: resolveDefaultCliPath(env),
+        ...(!normalizeNonEmptyString(env.GOLUTRA_CLI_PATH) ? { cliPathAutoDetected: true } : {}),
         timeoutMs: normalizeTimeout(env.GOLUTRA_COMMAND_TIMEOUT_MS)
     };
     const profile = normalizeProfile(env.GOLUTRA_PROFILE ?? env.GOLUTRA_RUNTIME_PROFILE);
@@ -193,6 +198,7 @@ export class ContextStore {
     mergeContext(baseContext, nextValues) {
         const nextContext = {
             cliPath: normalizeNonEmptyString(nextValues.cliPath) ?? baseContext.cliPath,
+            ...(baseContext.cliPathAutoDetected && !normalizeNonEmptyString(nextValues.cliPath) ? { cliPathAutoDetected: true } : {}),
             timeoutMs: typeof nextValues.timeoutMs === "number"
                 ? normalizeTimeout(nextValues.timeoutMs)
                 : baseContext.timeoutMs

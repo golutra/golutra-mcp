@@ -144,13 +144,13 @@ Detailed diagnostic output fields and common `reasonCode` values are documented 
 If an AI system or MCP-compatible host sees this repository, the intended usage is:
 
 1. Launch `golutra-mcp` as a local `stdio` MCP server, not as an HTTP service.
-2. Provide `GOLUTRA_CLI_PATH` and usually `GOLUTRA_WORKSPACE_PATH`. Leave profile/host unset to use CLI discovery, or set `GOLUTRA_PROFILE` / `GOLUTRA_CLI_HOST_KIND` explicitly. An inherited `GOLUTRA_RUNTIME_PROFILE` is respected. Deprecated `GOLUTRA_TARGET_ORDER` accepts one explicit target only.
+2. Provide `GOLUTRA_CLI_PATH` and usually `GOLUTRA_WORKSPACE_PATH`. dev/canary requires an explicitly configured absolute CLI path; updated member terminals inherit their Host's paired path. Leave profile/host unset to use CLI discovery, or set `GOLUTRA_PROFILE` / `GOLUTRA_CLI_HOST_KIND` explicitly. An inherited `GOLUTRA_RUNTIME_PROFILE` is respected. Deprecated `GOLUTRA_TARGET_ORDER` accepts one explicit target only.
 3. Call `golutra-get-context` or `golutra-diagnose` first to confirm runtime readiness.
 4. Read the relevant guide before acting, for example `golutra-read-cli-guide` with `guide: "team"` before team creation.
 5. Use the structured team-building flow instead of inventing a custom transport:
    `golutra-read-team-config` -> `golutra-list-terminal-defaults` / `golutra-create-terminals` / conversation tools / prompt tools / automation tools.
 6. For runtime collaboration after the team exists, use:
-   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-messages` / `golutra-read-inbox` / roadmap tools. Inspect each batch item; retry unchanged messages with the same requestId and key. Partial failure never rolls back accepted items.
+   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-messages` / `golutra-read-inbox` / roadmap tools. Send `text` for one message or `messages` for a batch. Inspect each item; retry with the returned `retryFile`. Partial failure never rolls back accepted items.
 7. Treat `golutra-cli` as the stable boundary. Do not bypass this project by directly calling Golutra local socket IPC unless you intentionally want to maintain a separate integration layer.
 8. For destructive or restart tools, pass the explicit confirmation fields required by the tool schema, such as `confirmedMemberId` or `confirmedConversationId`.
 9. When switching workspaces for a single request, pass `workspacePath` on that tool call. Use `golutra-set-context` only when you want to persist a new default for later calls.
@@ -296,7 +296,7 @@ golutra-mcp
 5. 创建团队时按标准工具链路走，不要自造传输协议：
    `golutra-read-team-config` -> `golutra-list-terminal-defaults` / `golutra-create-terminals` / 会话拓扑工具 / 提示词工具 / 自动化工具。
 6. 团队创建完成后的运行期协作使用：
-   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-messages` / `golutra-read-inbox` / 路线图工具。批量发送检查每项状态；重试原消息保留同一 requestId 和 key，部分失败不会回滚已经接收的项。
+   `golutra-list-conversations` -> `golutra-list-messages` / `golutra-send-messages` / `golutra-read-inbox` / 路线图工具。单条填 `text`，多条填 `messages`；检查每项状态，重试填返回的 `retryFile`，部分失败不会回滚已成功的项。
 7. 把 `golutra-cli` 视为稳定边界。除非你明确准备长期维护另一套集成层，否则不要绕过这个项目去直连 Golutra 本地 socket IPC。
 8. 删除或重启类工具必须按 tool schema 传入显式确认字段，例如 `confirmedMemberId` 或 `confirmedConversationId`。
 9. 如果只是某一次调用切换工作区，就在该次 tool 调用里显式传 `workspacePath`。只有在你希望后续调用默认都改到新工作区时，才使用 `golutra-set-context`。
@@ -351,6 +351,18 @@ npm run dev
 
 ## Unified member messaging / 统一成员发送
 
-Use `golutra-send-messages` directly for both single messages and batches when familiar with its usage. Only when its usage is unclear, call `golutra-get-skill` with `skillName: "chat"` for instructions. The former `golutra-send-message` tool has been removed. Refresh MCP tools and update Golutra Host/CLI together; sending requires SQLite storage. Preserve requestId/item keys on retries and reconcile uncertain legacy sends before switching commands.
+Use `golutra-send-messages` directly when familiar with its usage. Single replies can be `{ "text": "Completed." }` when there is exactly one verified current source. For a new private message add `to: { memberId }`; for a channel add `to: { conversationId, mentionIds }`; for a specific reply add `replyTo`. Batch these entries in `messages`. Use `golutra-read-inbox` with no arguments to read the complete current inbox. Only supply additional context if requested by an error; external operators without member context still need explicit identity, workspace and request information.
 
-统一使用 `golutra-send-messages`，单条消息放一个 `messages` 项。已了解用法时直接发送，仅在不清楚时调用 `golutra-get-skill`（`skillName: "chat"`）获取说明。旧单条工具已移除；需同步更新 Host/CLI、刷新 MCP 工具列表和成员说明。发送需要 SQLite，重试保留原 requestId/key；旧请求结果不明时先核对，避免重复发送。
+Retry using the same send tool with `{ "retryFile": "<returned path>" }` and the original profile/Host. Do not combine it with new text or recreate the original short input. Success preserves the CLI envelope (`result.data.items`, `retryFile`); failures preserve the full CLI JSON in `response` and expose `retryFile` at the top level when available. A process timeout does not cancel Host execution. If no retry file was returned, reconcile the uncertain send before submitting again.
+
+Only when usage is unclear, call `golutra-get-skill` with `skillName: "chat"`; use the current MCP tool schema for tool inputs. Update Golutra Host/CLI together and refresh MCP tools. The CLI must advertise `chatSendDraft`, `chatRetryFile`, `chatInboxAllPages`, and `chatRetryDiagnostic`; version numbers alone do not establish compatibility. The old single-message tool is removed; sending still requires SQLite storage.
+
+统一使用 `golutra-send-messages`：单条填 `text`，多条填 `messages`，按需加 `to` 或 `replyTo`。当前来源唯一时可以只填正文；多来源先用 `golutra-read-inbox` 一次读完，再明确回复哪条消息。身份和当前批次由 Host 核验，不按名字猜测；外部独立客户端只在确实缺失时按错误补充本人上下文。
+
+重试仍用同一个工具，只填返回的 `retryFile`，保持原 profile/Host，不重新填写短正文。成功返回 CLI 原始 envelope；失败的 `response` 保留完整逐项结果，`retryFile` 另在顶层提供。超时不代表后端已取消，没有凭据时先核对原请求。已了解用法时直接使用，不清楚才读 chat 技能，并以 MCP 工具声明为准。
+
+开发环境需指定配套 CLI 的绝对路径：新版成员终端自动继承 `GOLUTRA_CLI_PATH`，独立 MCP 客户端通过环境或 `golutra-set-context` 配置。dev/canary 不再自动选择安装版或裸命令；stable 保留安装目录发现。Node 直接启动程序，路径不需要额外包 shell 引号。上述行为要求更新 CLI/Host 和 MCP，未发布的源码不会自动更新已安装 npm 包。
+
+若 MCP 客户端过滤环境变量（如 Codex 默认配置），需显式透传成员已有的路径、profile/Host 地址和 scope token。只配置变量名，不把 token 值复制到共享文件；配置示例见 [启动说明](STARTUP_PROCESS.md)。未透传时不能声称 MCP 已自动绑定该成员。
+
+不同成员各自启动 stdio MCP 进程，可以共用程序与配置。身份仍由 CLI/Host 核验真实调用进程，不能用同一个脱离成员的共享 runner 自动代表所有成员；切换默认工作区也不会改变发送者身份。
