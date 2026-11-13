@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- Add a tag-triggered npm release workflow with Linux/macOS/Windows checks,
+  exact version validation, OIDC provenance, public artifact integrity
+  verification, and GitHub Release assets. Manual runs are previews only.
+- Document the one-time npm trusted publisher setup and safe handling of
+  already-published or still-processing versions.
+
+### Fixed
+
+- Use the operating system's temporary directory in the IPC diagnostics test
+  so Windows CI reaches the intended connection-failure assertion.
+
 ## [0.1.5] - 2026-11-13
 
 This release changes the messaging tool contract. Refresh the client's tool list and update Golutra CLI and Host together. Use `golutra-send-messages` with `text`, `messages`, or `retryFile`; inspect `result.data.items` on success and `response` on failure. The removed singular send tool and inbox cursor are not supported.

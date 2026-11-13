@@ -308,40 +308,92 @@ npm pack --dry-run
 
 ## Publish To npm
 
-Use this flow for a normal public npm release:
+The `Release` workflow in `.github/workflows/release.yml` publishes the single
+cross-platform npm package. It reuses `ci.yml` to run checks on Linux, macOS and
+Windows; all three must pass before packaging. Only a pushed `vX.Y.Z` tag can
+publish. `package.json`, `package-lock.json`, the tag, and the changelog must
+agree on the stable version.
 
-1. Confirm you are in the repository root and that checks pass:
+### One-time npm trusted publisher setup
 
-```bash
-cd /path/to/golutra-mcp
-npm run check
-npm pack
-```
+An npm package maintainer must bind `golutra-mcp` to this GitHub Actions workflow
+in the package's npm settings:
 
-2. Confirm your npm CLI session is authenticated:
+- Organization/user: `golutra`
+- Repository: `golutra-mcp`
+- Workflow filename: `release.yml`
+- Environment: leave empty (the workflow does not declare one)
+- Permission: allow publishing
 
-```bash
-npm whoami
-```
-
-3. Publish the package:
-
-```bash
-npm publish
-```
-
-4. Verify the published result:
+With npm 11.15.0 or newer, the equivalent command is:
 
 ```bash
-npm view golutra-mcp version
-npm view golutra-mcp
+npm trust github golutra-mcp --repository golutra/golutra-mcp --file release.yml --allow-publish
 ```
 
-Release notes:
+This account change requires npm's authentication/2FA flow. Committing the
+workflow does not configure that trust. The publish job uses `id-token: write`
+and npm 11.17.0 for OIDC, with `--provenance`; no `NPM_TOKEN`, copied local
+credential, or bootstrap secret is needed for this already-existing package.
 
-- If `npm publish` reports that the version already exists, bump `package.json` to the next version and publish again
-- If npm requires browser or OTP confirmation, complete that flow and wait for the CLI to print `+ golutra-mcp@<version>`
-- `npm pack` creates a local `.tgz` artifact in the repository root; this is useful for pre-publish inspection or private file distribution
+See [npm trusted publishers](https://docs.npmjs.com/trusted-publishers) and
+[npm trust](https://docs.npmjs.com/cli/v11/commands/npm-trust).
+
+### Preview without publishing
+
+Run **Actions → Release → Run workflow**, selecting the branch to check, or:
+
+```bash
+gh workflow run release.yml --ref main
+```
+
+Every manual run is a dry run, even if a tag is selected. It runs all checks,
+builds and packs, checks public npm metadata, and uploads the package plus
+checksums as a workflow artifact. It also runs `npm publish --dry-run` for a new
+version; npm rejects even dry runs for an existing version, so that step is
+explicitly skipped when the registry already has the version. It never uploads a
+version to npm or creates a GitHub Release, and it does not test OIDC publishing
+permission. A preview of an already-published version reports whether the
+candidate archive matches; differences do not overwrite the published package.
+
+### Publish a new version
+
+1. Update `package.json`, `package-lock.json`, and the versioned `CHANGELOG.md`
+   entry, and complete the real CLI/Host smoke check appropriate to the changes.
+2. Run `npm run check`, commit, and push the reviewed release commit to `main`.
+3. Create an annotated `vX.Y.Z` tag on that commit and push that tag. Substitute
+   the actual new version in these commands; do not recreate an existing tag:
+
+```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin refs/tags/vX.Y.Z
+```
+
+The workflow publishes the checked tarball using OIDC, waits up to five minutes
+for npm processing (plus bounded request timeouts), checks its public integrity,
+and creates a GitHub Release with the version's changelog, tarball, and SHA-256
+checksum. GitHub-hosted checks do not replace a real Golutra CLI/Host smoke test.
+
+4. Verify the workflow result and the registry:
+
+```bash
+npm view golutra-mcp@X.Y.Z version dist.integrity --json --registry=https://registry.npmjs.org/
+npm view golutra-mcp dist-tags --json --registry=https://registry.npmjs.org/
+```
+
+### Retry and processing failures
+
+- Re-running the original tag workflow skips npm upload only when the existing
+  version has exactly the same archive integrity. Different content fails before
+  publication; never move a published tag or try to overwrite its npm version.
+- HTTP 404 means the version is not yet publicly available. Authentication,
+  network, rate-limit and server errors fail the lookup instead of being treated
+  as an unused version. A staged version can also return 404 while processing.
+- If npm reports processing or `E409`/`previously staged`, check its public
+  status first. Do not automatically bump the version or repeat publishing.
+  A duplicate-version error does not prove OIDC authentication works.
+- The existing `v0.1.5` predates this workflow. Keep its tag and npm artifact
+  unchanged; use a manual branch preview to validate the new automation.
 
 ## Self-Hosted E2E CI
 

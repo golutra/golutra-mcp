@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  package:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # 手动运行始终预演，只有推送匹配版本的标签才能进入发布阶段。
+      RELEASE_DRY_RUN: ${{ github.event_name != 'push' }}
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      action: ${{ steps.registry.outputs.action }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install release npm
+        run: npm install --global npm@11.17.0
+      - name: Validate version and prepare release notes
+        id: metadata
+        run: node scripts/release.mjs prepare "$RUNNER_TEMP/release"
+      - run: npm ci
+      - run: npm run build
+      - name: Pack the tested build
+        run: npm pack --ignore-scripts --json --pack-destination "$RUNNER_TEMP/release" > "$RUNNER_TEMP/release/pack.json"
+      - name: Check package integrity and registry state
+        id: registry
+        run: node scripts/release.mjs check "$RUNNER_TEMP/release"
+      - name: Preview npm publish without uploading
+        if: env.RELEASE_DRY_RUN == 'true' && steps.registry.outputs.alreadyPublished != 'true'
+        env:
+          RELEASE_VERSION: ${{ steps.metadata.outputs.version }}
+        run: npm publish "$RUNNER_TEMP/release/golutra-mcp-$RELEASE_VERSION.tgz" --dry-run --ignore-scripts --access public --registry=https://registry.npmjs.org/
+      - name: Report existing version preview
+        if: env.RELEASE_DRY_RUN == 'true' && steps.registry.outputs.alreadyPublished == 'true'
+        run: echo 'Version is already public; npm publish --dry-run would reject it. Package checks completed without an upload.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-release
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    needs: package
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && (needs.package.outputs.action == 'publish' || needs.package.outputs.action == 'existing')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      RELEASE_VERSION: ${{ needs.package.outputs.version }}
+      RELEASE_DRY_RUN: 'false'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+      - name: Install OIDC-capable npm
+        run: npm install --global npm@11.17.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-release
+          path: ${{ runner.temp }}/release
+      - name: Publish the verified package with OIDC provenance
+        if: needs.package.outputs.action == 'publish'
+        run: npm publish "$RUNNER_TEMP/release/golutra-mcp-$RELEASE_VERSION.tgz" --ignore-scripts --provenance --access public --registry=https://registry.npmjs.org/
+      - name: Verify public npm integrity
+        run: node scripts/release.mjs verify "$RUNNER_TEMP/release"
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: golutra-mcp v${{ needs.package.outputs.version }}
+          body_path: ${{ runner.temp }}/release/release-notes.md
+          files: |
+            ${{ runner.temp }}/release/golutra-mcp-${{ needs.package.outputs.version }}.tgz
+            ${{ runner.temp }}/release/SHA256SUMS
+          fail_on_unmatched_files: true
