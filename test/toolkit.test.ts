@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+
 import { describe, expect, it, vi } from "vitest";
 
 import { ContextStore } from "../src/lib/context.js";
@@ -224,7 +226,7 @@ describe("registerTools", () => {
     const contextStore = new ContextStore({
       cliPath: "golutra-cli",
       profile: "stable",
-      workspacePath: "/tmp",
+      workspacePath: tmpdir(),
       timeoutMs: 30_000
     });
     const listSkills = vi.fn().mockResolvedValue({
@@ -258,6 +260,7 @@ describe("registerTools", () => {
       userId: "01USER"
     });
 
+    expect(listTeamConfig).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
       structuredContent: {
         checks: {
