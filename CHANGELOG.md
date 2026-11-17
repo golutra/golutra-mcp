@@ -6,6 +6,13 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-11-17
+
+Group collaboration requires the updated Golutra CLI/Host. Refresh the MCP
+client's tool list to discover `golutra-add-channel-members`. Member terminals
+can omit identity and workspace fields; unbound local operators still supply
+their own context. Creating a group or adding members does not dispatch tasks.
+
 ### Added
 
 - Add `golutra-add-channel-members` to append existing workspace members through
