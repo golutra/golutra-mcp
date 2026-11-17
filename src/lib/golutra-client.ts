@@ -176,7 +176,7 @@ export class GolutraCliGateway {
 
   async listConversations(
     runtimeContext: RuntimeContextSnapshot,
-    input: { workspacePath: string; userId: string }
+    input: { workspacePath?: string | undefined; userId?: string | undefined }
   ): Promise<ChatConversationsListData> {
     return this.executeCommand<ChatConversationsListData>(
       {
@@ -421,8 +421,8 @@ export class GolutraCliGateway {
   async createChannel(
     runtimeContext: RuntimeContextSnapshot,
     input: {
-      workspacePath: string;
-      userId: string;
+      workspacePath?: string | undefined;
+      userId?: string | undefined;
       memberIds: string[];
       customName?: string | undefined;
     }
@@ -437,6 +437,21 @@ export class GolutraCliGateway {
           ...(input.customName ? { customName: input.customName } : {})
         }
       },
+      runtimeContext
+    );
+  }
+
+  async addChannelMembers(
+    runtimeContext: RuntimeContextSnapshot,
+    input: {
+      workspacePath?: string | undefined;
+      userId?: string | undefined;
+      conversationId: string;
+      memberIds: string[];
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.executeCommand(
+      { type: "chat.channel.members.add", payload: { ...input } },
       runtimeContext
     );
   }

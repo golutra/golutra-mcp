@@ -89,6 +89,10 @@ It is not a replacement for Golutra itself, and it does not re-implement Golutra
 
 ### What It Is Today
 
+Group collaboration uses the same verified CLI/Host context as messaging. From a member terminal, call `golutra-list-conversations` with no fields, `golutra-create-channel` with `customName` and `memberIds`, or `golutra-add-channel-members` with `conversationId` and the new `memberIds`. Only supply `workspacePath` and your own `userId` if missing context is reported. Group creation includes the caller and owner; addition preserves existing members and safely deduplicates retries. These operations do not create AI terminals or dispatch tasks. Use `golutra-send-messages` to send the actual task. This requires the updated Golutra Host; MCP does not emulate addition by reading and replacing the whole member list. Read the CLI `collaboration` guide only when usage is unclear.
+
+群组协作共用 CLI/Host 身份核验：成员终端中，查询群组和成员通常无需字段；建群只填群名与成员 ID，追加拉人只填群 ID 与新增成员 ID。追加保留原成员并支持重复调用，不能用整份名单替换来模拟。新增 AI 终端仍走团队创建流程，建群和拉人之后需要单独发送任务。需同步更新 Golutra Host，已有用户自定义上下文不会被自动覆盖。
+
 The current project is an installable public MCP server release with its first npm distribution already published.
 
 Today it already provides:

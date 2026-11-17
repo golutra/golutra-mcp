@@ -455,25 +455,49 @@ export function registerTools(server, contextStore, gateway) {
     });
     server.registerTool("golutra-create-channel", {
         title: "Create a Golutra channel",
-        description: `${writesWorkspaceLabel} Create one channel and auto-include both userId and owner in the final member set. ${workspaceOverrideNote}`,
+        description: `${writesWorkspaceLabel} Create a group using customName and existing memberIds. The Host fills verified member identity and workspace when omitted; it includes the caller and owner. Query members/conversations first and reuse the intended group. This does not create terminals or dispatch tasks. After a timeout, query before retrying creation. ${workspaceOverrideNote}`,
         inputSchema: {
             workspacePath: optionalWorkspacePath,
             profile: optionalProfile,
-            userId: nonEmptyString,
-            memberIds: projectMemberIdsSchema,
+            userId: nonEmptyString.optional().describe("Only supply your own identity if the CLI requests it."),
+            memberIds: stringArraySchema.min(1),
             customName: z.string().trim().optional()
         }
     }, async (input) => {
         try {
-            const workspacePath = contextStore.requireWorkspacePath(input);
             const runtimeContext = contextStore.resolveCommandContext(input);
             const result = await gateway.createChannel(runtimeContext, {
-                workspacePath,
+                workspacePath: runtimeContext.workspacePath,
                 userId: input.userId,
                 memberIds: input.memberIds,
                 customName: input.customName
             });
             return buildToolSuccess("Created channel.", result);
+        }
+        catch (error) {
+            return buildToolError(error);
+        }
+    });
+    server.registerTool("golutra-add-channel-members", {
+        title: "Add existing members to a Golutra group",
+        description: `${writesWorkspaceLabel} Add memberIds to a normal group you belong to using conversationId. Preserves all existing members, including concurrent additions. Repeated additions are a successful no-op. Inspect addedMemberIds, existingMemberIds and final memberIds. The Host fills verified identity/workspace; only provide them if requested. This does not create terminals or send messages. DM and default-channel changes are rejected. ${workspaceOverrideNote}`,
+        inputSchema: {
+            workspacePath: optionalWorkspacePath,
+            profile: optionalProfile,
+            userId: nonEmptyString.optional(),
+            conversationId: nonEmptyString,
+            memberIds: stringArraySchema.min(1)
+        }
+    }, async (input) => {
+        try {
+            const runtimeContext = contextStore.resolveCommandContext(input);
+            const result = await gateway.addChannelMembers(runtimeContext, {
+                workspacePath: runtimeContext.workspacePath,
+                userId: input.userId,
+                conversationId: input.conversationId,
+                memberIds: input.memberIds
+            });
+            return buildToolSuccess("Group membership updated; no task was dispatched.", result);
         }
         catch (error) {
             return buildToolError(error);
@@ -505,7 +529,7 @@ export function registerTools(server, contextStore, gateway) {
     });
     server.registerTool("golutra-update-conversation", {
         title: "Update a Golutra conversation",
-        description: `${writesWorkspaceLabel} Rename a conversation, replace a normal channel member set, or do both. DM and default-channel member updates are rejected by Golutra. ${workspaceOverrideNote}`,
+        description: `${writesWorkspaceLabel} Rename a conversation, intentionally replace its entire member set, or do both. For adding people use golutra-add-channel-members instead; omitted existing members are removed by replacement. DM and default-channel member updates are rejected by Golutra. ${workspaceOverrideNote}`,
         inputSchema: {
             workspacePath: optionalWorkspacePath,
             profile: optionalProfile,
@@ -555,18 +579,17 @@ export function registerTools(server, contextStore, gateway) {
     });
     server.registerTool("golutra-list-conversations", {
         title: "List Golutra conversations",
-        description: `${readOnlyAppLabel} List channel and direct-message conversations visible to a workspace member. ${workspaceOverrideNote}`,
+        description: `${readOnlyAppLabel} Query workspace members and visible conversations, normally with no arguments from a member terminal. Use returned IDs for group creation, additions or messages. The Host fills verified identity and workspace; supply your own userId/workspacePath only if requested. ${workspaceOverrideNote}`,
         inputSchema: {
-            userId: z.string().trim().min(1),
+            userId: nonEmptyString.optional(),
             workspacePath: optionalWorkspacePath,
             profile: optionalProfile
         }
     }, async (input) => {
         try {
-            const workspacePath = contextStore.requireWorkspacePath(input);
             const runtimeContext = contextStore.resolveCommandContext(input);
             const result = await gateway.listConversations(runtimeContext, {
-                workspacePath,
+                workspacePath: runtimeContext.workspacePath,
                 userId: input.userId
             });
             return buildToolSuccess("Listed conversations.", result);

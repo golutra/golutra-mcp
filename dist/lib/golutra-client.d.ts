@@ -22,8 +22,8 @@ export declare class GolutraCliGateway {
     }>;
     executeCommand<T = Record<string, unknown>>(command: StructuredCommand, runtimeContext: RuntimeContextSnapshot): Promise<T>;
     listConversations(runtimeContext: RuntimeContextSnapshot, input: {
-        workspacePath: string;
-        userId: string;
+        workspacePath?: string | undefined;
+        userId?: string | undefined;
     }): Promise<ChatConversationsListData>;
     listMessages(runtimeContext: RuntimeContextSnapshot, input: {
         workspacePath: string;
@@ -76,10 +76,16 @@ export declare class GolutraCliGateway {
         name: string;
     }): Promise<Record<string, unknown>>;
     createChannel(runtimeContext: RuntimeContextSnapshot, input: {
-        workspacePath: string;
-        userId: string;
+        workspacePath?: string | undefined;
+        userId?: string | undefined;
         memberIds: string[];
         customName?: string | undefined;
+    }): Promise<Record<string, unknown>>;
+    addChannelMembers(runtimeContext: RuntimeContextSnapshot, input: {
+        workspacePath?: string | undefined;
+        userId?: string | undefined;
+        conversationId: string;
+        memberIds: string[];
     }): Promise<Record<string, unknown>>;
     ensureDirect(runtimeContext: RuntimeContextSnapshot, input: {
         workspacePath: string;

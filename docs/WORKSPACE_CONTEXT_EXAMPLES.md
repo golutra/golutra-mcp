@@ -11,6 +11,18 @@ This document explains how `workspacePath` behaves in `golutra-mcp`.
 - 在业务 tool 调用里传 `workspacePath`，只影响本次调用
 - `golutra-set-context` 才会把新的工作区写成后续调用的默认值
 
+## Member Terminals: Prefer Verified Context
+
+From a Golutra member terminal, the Host verifies the calling process and can supply the workspace and caller identity. Normally use:
+
+- `golutra-list-conversations` with `{}`.
+- `golutra-create-channel` with `{"customName":"Review","memberIds":["<MEMBER_ID>"]}`.
+- `golutra-add-channel-members` with `{"conversationId":"<GROUP_ID>","memberIds":["<MEMBER_ID>"]}`.
+
+Setting a different workspace or user ID cannot override a verified member binding; a mismatch is rejected. The explicit workspace examples below are for a local operator or tools that require workspace input, not a way for a member to access another workspace. An unbound local operator must also provide their own `userId` for these group commands.
+
+成员终端优先省略工作区和身份，由 Host 核验并补齐。设置 MCP 默认值不能覆盖真实成员归属；与绑定不一致会被拒绝。下面的显式上下文示例用于本机操作员或需要工作区参数的工具，不表示成员能够切换到其他工作区。没有成员绑定的本机操作员还需明确提供自己的 `userId`。
+
 ## Example 1: Use The Stored Default Workspace
 
 First, persist a default workspace:
@@ -212,6 +224,7 @@ Typical examples:
 - `golutra-list-terminal-defaults`
 - `golutra-create-terminals`
 - `golutra-create-channel`
+- `golutra-add-channel-members` — append existing members atomically; never replace the current list to add people
 - `golutra-ensure-direct`
 - `golutra-read-prompt-tokens`
 - `golutra-update-member-prompt-settings`

@@ -8,11 +8,21 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ### Added
 
+- Add `golutra-add-channel-members` to append existing workspace members through
+  the Host's atomic membership command, preserving concurrent additions and
+  treating repeated additions as successful no-ops. Requires the updated CLI/Host.
 - Add a tag-triggered npm release workflow with Linux/macOS/Windows checks,
   exact version validation, OIDC provenance, public artifact integrity
   verification, and GitHub Release assets. Manual runs are previews only.
 - Document the one-time npm trusted publisher setup and safe handling of
   already-published or still-processing versions.
+
+### Changed
+
+- Let member terminals query conversations without fields and create groups
+  using the group name and member IDs. The Host supplies verified identity and
+  workspace; explicit mismatches are rejected. Clarify group creation, addition,
+  intentional full membership replacement, and separate task dispatch.
 
 ### Fixed
 

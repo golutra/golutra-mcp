@@ -268,6 +268,9 @@ export class GolutraCliGateway {
             }
         }, runtimeContext);
     }
+    async addChannelMembers(runtimeContext, input) {
+        return this.executeCommand({ type: "chat.channel.members.add", payload: { ...input } }, runtimeContext);
+    }
     async ensureDirect(runtimeContext, input) {
         return this.executeCommand({
             type: "chat.direct.ensure",
