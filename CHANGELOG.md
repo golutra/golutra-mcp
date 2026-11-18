@@ -6,6 +6,25 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-18
+
+Cross-workspace channels require the matching updated Golutra CLI and Host.
+Refresh the MCP client's tool list to load the new invitation and channel schemas.
+For official Web remote control, deploy the matching ERP relay route policy too.
+
+### Added
+
+- Invite existing members from registered workspaces into ordinary channels with
+  `externalMembers: [{ workspaceId, memberId }]`. The channel keeps its original
+  history while members keep their own terminal, session and inbox queue.
+- Query joined external channels through `externalChannels`, read their text
+  history with the source `workspaceId`, and send using
+  `to: { workspaceId, conversationId, mentionIds }` without changing MCP identity.
+- Check `chatCrossWorkspaceChannels` on both CLI and Host before these operations;
+  older Hosts reject the new feature explicitly. Default channels and local file
+  permissions remain unchanged. Compatible local chat remains available with
+  older CLI/Host pairs.
+
 ## [0.1.7] - 2026-11-18
 
 Cross-workspace messaging requires the matching updated Golutra CLI and Host.
