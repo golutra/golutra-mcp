@@ -6,6 +6,30 @@ The format follows Keep a Changelog, and this project uses Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-11-18
+
+Cross-workspace messaging requires the matching updated Golutra CLI and Host.
+Refresh the MCP client's tool list to discover `golutra-list-chat-contacts`.
+Keep the sender's source context; put the recipient workspace in `to.workspaceId`.
+
+### Added
+
+- Add `golutra-list-chat-contacts` for verified member addresses in other
+  registered workspaces on the current Host/profile. Communication is available
+  by default without a settings switch.
+- Extend the existing private-message target with optional `workspaceId`.
+  Preserve minimal replies, batching, per-item results and saved retry requests.
+- Document `pending_transfer`, source identity verification and the text-only
+  boundary; groups and local files are not shared across workspaces.
+
+### Fixed
+
+- Require the `chatCrossWorkspace` CLI capability before listing external
+  contacts or submitting cross-workspace destinations, including mixed batches.
+  Validate each operation against the cached capability snapshot so a prior
+  local send cannot bypass the check. Existing local messaging stays available
+  with compatible older CLI/Host pairs; no automatic runtime switching occurs.
+
 ## [0.1.6] - 2026-11-17
 
 Group collaboration requires the updated Golutra CLI/Host. Refresh the MCP
