@@ -10,7 +10,7 @@ const mentions = z.array(id).min(1).refine(values => values.every(value => value
 const messageShape = {
   text: z.string().min(1).refine(value => value.trim().length > 0, "text is required"),
   to: z.union([
-    z.object({ memberId: id }).strict(),
+    z.object({ memberId: id, workspaceId: id.optional().describe("Only for a private message to another workspace on this Host/profile. Use the address returned by golutra-list-chat-contacts.") }).strict(),
     z.object({ conversationId: id, mentionIds: mentions }).strict()
   ]).optional(),
   replyTo: id.optional(),
@@ -66,9 +66,20 @@ export const chatInboxSchema = z.object({
 }).strict();
 
 export function registerChatBatchTools(server: McpServer, contextStore: ContextStore, gateway: GolutraCliGateway): void {
+  server.registerTool("golutra-list-chat-contacts", {
+    title: "List members in other workspaces",
+    description: "Read-only. Usually call with no arguments. Returns verified recipient addresses in other available registered workspaces on this Host/profile; communication is enabled by default. Copy a contact's to value into golutra-send-messages. Replies still use the original messageId; do not change your sender or source workspace.",
+    inputSchema: z.object(contextShape).strict()
+  }, async input => {
+    try {
+      const { profile, ...query } = input;
+      const context = contextStore.resolveCommandContext({ profile, workspacePath: query.workspacePath });
+      return buildToolSuccess("Use each contact's to address for a new private message.", await gateway.listChatContacts(context, { ...query, workspacePath: context.workspacePath }));
+    } catch (error) { return buildToolError(error); }
+  });
   server.registerTool("golutra-send-messages", {
     title: "Send Golutra messages and replies",
-    description: "Writes workspace. Send text for one message, or messages for up to 128 ready messages. The CLI fills verified identity and the unique current reply source; add to or replyTo when needed. Only supply other context if an error requests it. Inspect result.data.items; queued means accepted, not model completion. For timeout or partial failure, call this tool with the returned retryFile and the same profile/Host. Failures retain the original CLI JSON in response and expose retryFile when available. Never resubmit short input to retry an earlier turn or switch runtimes. Read chat help only when unclear.",
+    description: "Writes workspace. Send text for one message, or messages for up to 128 ready messages. The CLI fills verified identity and the unique current reply source; add to or replyTo when needed. For a private message to another workspace, use to.workspaceId and to.memberId from golutra-list-chat-contacts. Only supply other context if an error requests it. Inspect result.data.items; queued means accepted, pending_transfer means waiting for durable workspace forwarding, neither means model completion. For timeout or partial failure, use the returned retryFile on the same profile/Host. Failures retain the original CLI JSON and retryFile when available. Never resubmit short input to retry an earlier turn or switch runtimes. Read chat help only when unclear.",
     inputSchema: chatSendInputSchema
   }, async input => {
     try {

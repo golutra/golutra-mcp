@@ -75,6 +75,10 @@ export declare class GolutraCliGateway {
         memberId: string;
         name: string;
     }): Promise<Record<string, unknown>>;
+    listChatContacts(runtimeContext: RuntimeContextSnapshot, input: {
+        workspacePath?: string | undefined;
+        senderId?: string | undefined;
+    }): Promise<Record<string, unknown>>;
     createChannel(runtimeContext: RuntimeContextSnapshot, input: {
         workspacePath?: string | undefined;
         userId?: string | undefined;

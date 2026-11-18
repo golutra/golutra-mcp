@@ -52,7 +52,7 @@ export interface StructuredCommandEnvelope {
 export interface ChatBatchMessage {
   key?: string | undefined;
   text: string;
-  to?: { memberId?: string; conversationId?: string; mentionIds?: string[] } | undefined;
+  to?: { workspaceId?: string | undefined; memberId?: string; conversationId?: string; mentionIds?: string[] } | undefined;
   replyTo?: string | undefined;
 }
 

@@ -83,6 +83,10 @@ golutra-mcp
 
 ### What This Project Is
 
+Registered workspaces on the same Host/profile can exchange private messages by default; no settings switch is needed. Call `golutra-list-chat-contacts` without arguments when the address is unknown; copy its returned `to: {workspaceId, memberId}` into `golutra-send-messages`. Reply with the received messageId, or just `text` for one verified current source. Keep the sender's current workspace context. `pending_transfer` means saved for durable forwarding, not yet delivered or model-completed. This supports text only, requires the matching updated CLI/Host, and does not share groups or local files.
+
+MCP checks `chatCrossWorkspace` before contact discovery and explicit cross-workspace sends. An older CLI produces an upgrade error before submission; compatible local messaging continues to work. Saved retries still go through the CLI's original-request validation without changing destinations.
+
 `golutra-mcp` is a Model Context Protocol server that exposes Golutra collaboration capabilities to MCP-compatible hosts through `golutra-cli`.
 
 It is not a replacement for Golutra itself, and it does not re-implement Golutra's local IPC protocol. Instead, it acts as a thin integration layer that lets external MCP clients reuse Golutra's existing team-building, chat, roadmap, prompt, automation, and skill flows through a smaller and more stable boundary.
@@ -362,6 +366,10 @@ Retry using the same send tool with `{ "retryFile": "<returned path>" }` and the
 Only when usage is unclear, call `golutra-get-skill` with `skillName: "chat"`; use the current MCP tool schema for tool inputs. Update Golutra Host/CLI together and refresh MCP tools. The CLI must advertise `chatSendDraft`, `chatRetryFile`, `chatInboxAllPages`, and `chatRetryDiagnostic`; version numbers alone do not establish compatibility. The old single-message tool is removed; sending still requires SQLite storage.
 
 统一使用 `golutra-send-messages`：单条填 `text`，多条填 `messages`，按需加 `to` 或 `replyTo`。当前来源唯一时可以只填正文；多来源先用 `golutra-read-inbox` 一次读完，再明确回复哪条消息。身份和当前批次由 Host 核验，不按名字猜测；外部独立客户端只在确实缺失时按错误补充本人上下文。
+
+跨工作区私聊：同 Host/profile 已登记工作区默认互通，无需设置开关。不知道地址时，无参调用 `golutra-list-chat-contacts`，将返回的 `to: {workspaceId, memberId}` 直接用于发送；回复仍按原 `messageId`，唯一来源只填正文。保持自己的来源工作区与身份，不切换 MCP 上下文。`pending_transfer` 表示已持久保存等待转交，目标接受后继续原成员队列，不代表模型完成。仅限同 Host/profile 的文字私聊，不共享群组或本机文件，需配套新 CLI/Host。
+
+查询外部联系人和指定跨区目标前，MCP 会检查 `chatCrossWorkspace` 能力；旧 CLI 会在提交前收到升级提示，兼容的本地聊天仍可使用。保存的重试请求继续交由 CLI 校验原始地址，MCP 不改写目标。
 
 重试仍用同一个工具，只填返回的 `retryFile`，保持原 profile/Host，不重新填写短正文。成功返回 CLI 原始 envelope；失败的 `response` 保留完整逐项结果，`retryFile` 另在顶层提供。超时不代表后端已取消，没有凭据时先核对原请求。已了解用法时直接使用，不清楚才读 chat 技能，并以 MCP 工具声明为准。
 

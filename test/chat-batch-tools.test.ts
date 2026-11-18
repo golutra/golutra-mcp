@@ -5,9 +5,43 @@ import { GolutraCliGateway } from "../src/lib/golutra-client.js";
 import type { CliCommandRequest, ChatBatchResult } from "../src/lib/types.js";
 
 const info = { ok: true, capabilities: ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"] };
+const crossWorkspaceInfo = { ...info, capabilities: [...info.capabilities, "chatCrossWorkspace"] };
 const context = {cliPath:"/build/golutra-cli", profile:"dev" as const, timeoutMs:1000};
 
 describe("batch messaging contract", () => {
+  it("accepts a cross-workspace member address while rejecting cross-workspace groups", () => {
+    expect(chatSendSchema.safeParse({text:"hello", to:{workspaceId:"project-b",memberId:"member-b"}}).success).toBe(true);
+    expect(chatSendSchema.safeParse({text:"hello", to:{workspaceId:"project-b",conversationId:"group",mentionIds:["b"]}}).success).toBe(false);
+  });
+  it("queries contacts with verified source context and no invented target", async () => {
+    const executeJson = vi.fn().mockResolvedValueOnce(crossWorkspaceInfo).mockResolvedValue({ok:true,result:{status:"ok",data:{contacts:[]}}});
+    const gateway = new GolutraCliGateway({executeJson});
+    await gateway.listChatContacts(context, {});
+    expect(JSON.parse((executeJson.mock.calls[1]![0] as CliCommandRequest).stdin!)).toEqual({type:"chat.contacts.list",payload:{}});
+  });
+  it("keeps local chat available but rejects unsupported cross-workspace operations before submission", async () => {
+    const executeJson = vi.fn().mockResolvedValueOnce(info).mockResolvedValueOnce({ok:true}).mockResolvedValue(info);
+    const gateway = new GolutraCliGateway({executeJson});
+    await gateway.sendMessages(context, {text:"local", to:{memberId:"same-id"}});
+    await expect(gateway.sendMessages(context, {text:"external", to:{workspaceId:"project-b",memberId:"same-id"}}))
+      .rejects.toThrow("chatCrossWorkspace");
+    expect(executeJson).toHaveBeenCalledTimes(2);
+    await expect(gateway.listChatContacts(context, {})).rejects.toMatchObject({code:"CLI_CHAT_CAPABILITY_REQUIRED"});
+    expect(executeJson).toHaveBeenCalledTimes(3);
+    expect((executeJson.mock.calls[2]![0] as CliCommandRequest).stdin).toBeUndefined();
+  });
+  it("checks every batch destination and rechecks capabilities after an upgrade without changing addresses", async () => {
+    const executeJson = vi.fn().mockResolvedValueOnce(info).mockResolvedValueOnce(crossWorkspaceInfo).mockResolvedValue({ok:true,result:{status:"ok",data:{contacts:[]}}});
+    const gateway = new GolutraCliGateway({executeJson});
+    const input = {messages:[{text:"local",to:{memberId:"same-id"}},{text:"external",to:{workspaceId:"project-b",memberId:"same-id"}}]};
+    await expect(gateway.sendMessages(context, input)).rejects.toMatchObject({code:"CLI_CHAT_CAPABILITY_REQUIRED"});
+    expect(executeJson).toHaveBeenCalledTimes(1);
+    await gateway.sendMessages(context, input);
+    expect(executeJson).toHaveBeenCalledTimes(3);
+    expect(JSON.parse((executeJson.mock.calls[2]![0] as CliCommandRequest).stdin!)).toEqual(input);
+    await gateway.listChatContacts(context, {});
+    expect(executeJson).toHaveBeenCalledTimes(4);
+  });
   it("accepts mixed destinations and rejects ambiguous routes, duplicate keys and oversize keys", () => {
     const privateMessage = { key: "a", text: "hello", to: { memberId: "b" } };
     expect(batchMessagesSchema.safeParse([privateMessage, { key: "c", text: "reply", replyTo: "message" }]).success).toBe(true);

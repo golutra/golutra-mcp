@@ -98,7 +98,7 @@ async function main() {
     assert(toolNames.includes("golutra-update-member-name"));
     assert(toolNames.includes("golutra-export-template-workspace"));
     assert(toolNames.includes("golutra-publish-template-edited"));
-    for (const tool of ["golutra-send-messages", "golutra-read-inbox", "golutra-cli-info", "golutra-wait-command"]) {
+    for (const tool of ["golutra-send-messages", "golutra-read-inbox", "golutra-list-chat-contacts", "golutra-cli-info", "golutra-wait-command"]) {
       assert(toolNames.includes(tool));
     }
     const sendSchema = listedTools.tools.find(tool => tool.name === "golutra-send-messages").inputSchema;
@@ -106,6 +106,8 @@ async function main() {
     assert(sendSchema.properties.retryFile);
     assert(!sendSchema.required?.includes("requestId"));
     assert(!sendSchema.required?.includes("messages"));
+    const directTargetSchema = sendSchema.properties.to.anyOf.find((schema) => schema.properties?.memberId);
+    assert(directTargetSchema.properties.workspaceId);
     const inboxSchema = listedTools.tools.find(tool => tool.name === "golutra-read-inbox").inputSchema;
     assert(!inboxSchema.properties.cursor);
     assert(!inboxSchema.required?.includes("batchId"));
@@ -135,7 +137,7 @@ async function main() {
     assert.equal(info.ok, true);
     assert.equal(info.cliPath, contextArgs.cliPath);
     assert.equal(typeof info.host.runtimeInstanceId, "string");
-    for (const capability of ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"]) {
+    for (const capability of ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic", "chatCrossWorkspace"]) {
       assert(info.capabilities.includes(capability), `missing CLI capability: ${capability}`);
     }
     if (contextArgs.profile) { assert.equal(info.profile, contextArgs.profile); }

@@ -46,6 +46,7 @@ export interface ChatBatchMessage {
     key?: string | undefined;
     text: string;
     to?: {
+        workspaceId?: string | undefined;
         memberId?: string;
         conversationId?: string;
         mentionIds?: string[];

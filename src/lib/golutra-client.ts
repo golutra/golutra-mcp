@@ -93,7 +93,7 @@ function buildTargetEnv(
 }
 
 export class GolutraCliGateway {
-  private chatCompatibility: { key: string; check: Promise<void> } | undefined;
+  private chatCompatibility: { key: string; check: Promise<Record<string, unknown>> } | undefined;
 
   constructor(private readonly runner: CliJsonRunner) {}
 
@@ -215,24 +215,26 @@ export class GolutraCliGateway {
     );
   }
 
-  private async requireChatSupport(context: RuntimeContextSnapshot): Promise<void> {
+  private async requireChatSupport(context: RuntimeContextSnapshot, crossWorkspace = false): Promise<void> {
     const key = JSON.stringify([context.cliPath, resolveRuntimeTargets(context)]);
     if (this.chatCompatibility?.key !== key) {
-      const check = this.readCliInfo(context).then(info => {
-        const required = ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"];
-        const missing = required.filter(capability => !Array.isArray(info.capabilities) || !info.capabilities.includes(capability));
-        if (missing.length) {
-          throw new CliExecutionError({
-            message: `Update Golutra CLI and Host together, then set cliPath to the paired executable. Missing CLI capabilities: ${missing.join(", ")}. No message was sent.`,
-            code: "CLI_CHAT_CAPABILITY_REQUIRED", cliPath: context.cliPath, args: ["info", "--json"], exitCode: 0,
-            stdout: JSON.stringify(info)
-          });
-        }
-      });
-      this.chatCompatibility = { key, check };
+      this.chatCompatibility = { key, check: this.readCliInfo(context) };
     }
     const current = this.chatCompatibility;
-    try { await current.check; }
+    try {
+      const info = await current.check;
+      // 缓存能力快照，每次按当前操作校验，不能把本地发送成功当作已支持跨区。
+      const required = ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"];
+      if (crossWorkspace) { required.push("chatCrossWorkspace"); }
+      const missing = required.filter(capability => !Array.isArray(info.capabilities) || !info.capabilities.includes(capability));
+      if (missing.length) {
+        throw new CliExecutionError({
+          message: `Update Golutra CLI and Host together, then set cliPath to the paired executable. Missing CLI capabilities: ${missing.join(", ")}. No message was sent.`,
+          code: "CLI_CHAT_CAPABILITY_REQUIRED", cliPath: context.cliPath, args: ["info", "--json"], exitCode: 0,
+          stdout: JSON.stringify(info)
+        });
+      }
+    }
     catch (error) {
       // 只缓存成功的能力检查；更新配置或修复 CLI 后可重查，不能自动换程序重发。
       if (this.chatCompatibility === current) { this.chatCompatibility = undefined; }
@@ -241,7 +243,7 @@ export class GolutraCliGateway {
   }
 
   async sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatSendResponse> {
-    await this.requireChatSupport(context);
+    await this.requireChatSupport(context, Boolean(input.to?.workspaceId || input.messages?.some(message => message.to?.workspaceId)));
     return this.executeJsonWithRuntimeTargets(context, target => [
       ...buildProfileArgs(target.profile), "chat", "send", "--stdin", "--timeout-ms", String(context.timeoutMs)
     ], JSON.stringify(input), context.timeoutMs * 2 + 1500);
@@ -416,6 +418,14 @@ export class GolutraCliGateway {
       },
       runtimeContext
     );
+  }
+
+  async listChatContacts(
+    runtimeContext: RuntimeContextSnapshot,
+    input: { workspacePath?: string | undefined; senderId?: string | undefined }
+  ): Promise<Record<string, unknown>> {
+    await this.requireChatSupport(runtimeContext, true);
+    return this.executeCommand({ type: "chat.contacts.list", payload: { ...input } }, runtimeContext);
   }
 
   async createChannel(
