@@ -83,7 +83,9 @@ golutra-mcp
 
 ### What This Project Is
 
-Registered workspaces on the same Host/profile can exchange private messages by default; no settings switch is needed. Call `golutra-list-chat-contacts` without arguments when the address is unknown; copy its returned `to: {workspaceId, memberId}` into `golutra-send-messages`. Reply with the received messageId, or just `text` for one verified current source. Keep the sender's current workspace context. `pending_transfer` means saved for durable forwarding, not yet delivered or model-completed. This supports text only, requires the matching updated CLI/Host, and does not share groups or local files.
+Registered workspaces on the same Host/profile can exchange private messages by default; no settings switch is needed. Call `golutra-list-chat-contacts` without arguments when the address is unknown; copy its returned `to: {workspaceId, memberId}` into `golutra-send-messages`. Reply with the received messageId, or just `text` for one verified current source. Keep the sender's current workspace context. `pending_transfer` means saved for durable forwarding, not yet delivered or model-completed. This supports text only, requires the matching updated CLI/Host, and grants no local file access.
+
+Ordinary channels can invite existing external members using `externalMembers: [{workspaceId, memberId}]` in `golutra-create-channel` or `golutra-add-channel-members`. `golutra-list-conversations` returns joined `externalChannels` with the source channel address and participant IDs. To speak there, use `to: {workspaceId, conversationId, mentionIds}`; to read its history, pass the source workspaceId and conversationId to `golutra-list-messages`. Use an inbox messageId for `replyTo`; historical source IDs are for history lookup, and proactive messages use `to`. The channel remains in its original workspace; members keep their own terminals, sessions and unified inbox queues. This requires `chatCrossWorkspaceChannels` on both CLI and Host. Default channels remain local.
 
 MCP checks `chatCrossWorkspace` before contact discovery and explicit cross-workspace sends. An older CLI produces an upgrade error before submission; compatible local messaging continues to work. Saved retries still go through the CLI's original-request validation without changing destinations.
 
@@ -367,7 +369,7 @@ Only when usage is unclear, call `golutra-get-skill` with `skillName: "chat"`; u
 
 统一使用 `golutra-send-messages`：单条填 `text`，多条填 `messages`，按需加 `to` 或 `replyTo`。当前来源唯一时可以只填正文；多来源先用 `golutra-read-inbox` 一次读完，再明确回复哪条消息。身份和当前批次由 Host 核验，不按名字猜测；外部独立客户端只在确实缺失时按错误补充本人上下文。
 
-跨工作区私聊：同 Host/profile 已登记工作区默认互通，无需设置开关。不知道地址时，无参调用 `golutra-list-chat-contacts`，将返回的 `to: {workspaceId, memberId}` 直接用于发送；回复仍按原 `messageId`，唯一来源只填正文。保持自己的来源工作区与身份，不切换 MCP 上下文。`pending_transfer` 表示已持久保存等待转交，目标接受后继续原成员队列，不代表模型完成。仅限同 Host/profile 的文字私聊，不共享群组或本机文件，需配套新 CLI/Host。
+跨工作区通信：同 Host/profile 已登记工作区默认互通，无需设置开关。不知道地址时，无参调用 `golutra-list-chat-contacts`，将返回的 `to: {workspaceId, memberId}` 用于私聊；回复使用收件箱的 `messageId`，唯一来源只填正文。普通频道创建、追加邀请支持 `externalMembers: [{workspaceId, memberId}]`。`golutra-list-conversations` 返回已加入的 `externalChannels` 及其参与者 ID；主动发言填 `to: {workspaceId, conversationId, mentionIds}`，读历史填来源工作区和频道地址。历史源消息 ID 不代替收件箱 replyTo；读历史后主动发言仍使用 to。保持自己的来源工作区与身份，不切换 MCP 上下文。`pending_transfer` 表示已保存等待转交，不代表模型完成。频道历史留在原工作区，成员复用原终端、Session 和统一队列；默认频道不扩展，入群不授予本机文件访问权。跨区频道需 CLI/Host 均支持 `chatCrossWorkspaceChannels`。
 
 查询外部联系人和指定跨区目标前，MCP 会检查 `chatCrossWorkspace` 能力；旧 CLI 会在提交前收到升级提示，兼容的本地聊天仍可使用。保存的重试请求继续交由 CLI 校验原始地址，MCP 不改写目标。
 

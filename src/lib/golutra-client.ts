@@ -193,16 +193,21 @@ export class GolutraCliGateway {
   async listMessages(
     runtimeContext: RuntimeContextSnapshot,
     input: {
-      workspacePath: string;
+      workspacePath?: string | undefined;
+      workspaceId?: string | undefined;
+      userId?: string | undefined;
       conversationId: string;
       limit?: number | undefined;
       beforeId?: string | undefined;
     }
   ): Promise<ChatMessagesListData> {
+    if (input.workspaceId) await this.requireChatSupport(runtimeContext, true, true);
     const payload: StructuredCommand = {
       type: "chat.messages.list",
       payload: {
         workspacePath: input.workspacePath,
+        workspaceId: input.workspaceId,
+        userId: input.userId,
         conversationId: input.conversationId,
         ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
         ...(input.beforeId ? { beforeId: input.beforeId } : {})
@@ -215,7 +220,7 @@ export class GolutraCliGateway {
     );
   }
 
-  private async requireChatSupport(context: RuntimeContextSnapshot, crossWorkspace = false): Promise<void> {
+  private async requireChatSupport(context: RuntimeContextSnapshot, crossWorkspace = false, externalChannel = false): Promise<void> {
     const key = JSON.stringify([context.cliPath, resolveRuntimeTargets(context)]);
     if (this.chatCompatibility?.key !== key) {
       this.chatCompatibility = { key, check: this.readCliInfo(context) };
@@ -226,6 +231,7 @@ export class GolutraCliGateway {
       // 缓存能力快照，每次按当前操作校验，不能把本地发送成功当作已支持跨区。
       const required = ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic"];
       if (crossWorkspace) { required.push("chatCrossWorkspace"); }
+      if (externalChannel) { required.push("chatCrossWorkspaceChannels"); }
       const missing = required.filter(capability => !Array.isArray(info.capabilities) || !info.capabilities.includes(capability));
       if (missing.length) {
         throw new CliExecutionError({
@@ -233,6 +239,12 @@ export class GolutraCliGateway {
           code: "CLI_CHAT_CAPABILITY_REQUIRED", cliPath: context.cliPath, args: ["info", "--json"], exitCode: 0,
           stdout: JSON.stringify(info)
         });
+      }
+      if (externalChannel) {
+        const host = info.host as { capabilities?: unknown } | undefined;
+        if (!Array.isArray(host?.capabilities) || !host.capabilities.includes("chatCrossWorkspaceChannels")) {
+          throw new Error("The connected Golutra Host does not support cross-workspace channels. Update Host and CLI together; no command was sent.");
+        }
       }
     }
     catch (error) {
@@ -243,7 +255,7 @@ export class GolutraCliGateway {
   }
 
   async sendMessages(context: RuntimeContextSnapshot, input: ChatBatchInput): Promise<ChatSendResponse> {
-    await this.requireChatSupport(context, Boolean(input.to?.workspaceId || input.messages?.some(message => message.to?.workspaceId)));
+    await this.requireChatSupport(context, Boolean(input.to?.workspaceId || input.messages?.some(message => message.to?.workspaceId)), Boolean((input.to?.workspaceId && input.to.conversationId) || input.messages?.some(message => message.to?.workspaceId && message.to.conversationId)));
     return this.executeJsonWithRuntimeTargets(context, target => [
       ...buildProfileArgs(target.profile), "chat", "send", "--stdin", "--timeout-ms", String(context.timeoutMs)
     ], JSON.stringify(input), context.timeoutMs * 2 + 1500);
@@ -434,9 +446,12 @@ export class GolutraCliGateway {
       workspacePath?: string | undefined;
       userId?: string | undefined;
       memberIds: string[];
+      externalMembers?: { workspaceId: string; memberId: string }[] | undefined;
       customName?: string | undefined;
     }
   ): Promise<Record<string, unknown>> {
+    if (input.externalMembers?.length) await this.requireChatSupport(runtimeContext, true, true);
+    if (!input.memberIds.length && !input.externalMembers?.length) throw new Error("Provide memberIds or externalMembers.");
     return this.executeCommand(
       {
         type: "chat.channel.create",
@@ -444,6 +459,7 @@ export class GolutraCliGateway {
           workspacePath: input.workspacePath,
           userId: input.userId,
           memberIds: input.memberIds,
+          ...(input.externalMembers?.length ? { externalMembers: input.externalMembers } : {}),
           ...(input.customName ? { customName: input.customName } : {})
         }
       },
@@ -458,8 +474,12 @@ export class GolutraCliGateway {
       userId?: string | undefined;
       conversationId: string;
       memberIds: string[];
+      externalMembers?: { workspaceId: string; memberId: string }[] | undefined;
+      workspaceId?: string | undefined;
     }
   ): Promise<Record<string, unknown>> {
+    if (input.externalMembers?.length || input.workspaceId) await this.requireChatSupport(runtimeContext, true, true);
+    if (!input.memberIds.length && !input.externalMembers?.length) throw new Error("Provide memberIds or externalMembers.");
     return this.executeCommand(
       { type: "chat.channel.members.add", payload: { ...input } },
       runtimeContext

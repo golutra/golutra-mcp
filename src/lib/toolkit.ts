@@ -603,12 +603,13 @@ export function registerTools(
     {
       title: "Create a Golutra channel",
       description:
-        `${writesWorkspaceLabel} Create a group using customName and existing memberIds. The Host fills verified member identity and workspace when omitted; it includes the caller and owner. Query members/conversations first and reuse the intended group. This does not create terminals or dispatch tasks. After a timeout, query before retrying creation. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Create a group using customName and memberIds and/or externalMembers addresses from chat contacts. External members keep their own workspace, terminal and session; no member is copied. The Host fills your identity/workspace and includes caller and owner. Query first; after a timeout check before recreating. This does not dispatch tasks. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
         userId: nonEmptyString.optional().describe("Only supply your own identity if the CLI requests it."),
-        memberIds: stringArraySchema.min(1),
+        memberIds: stringArraySchema.min(1).optional(),
+        externalMembers: z.array(z.object({ workspaceId: nonEmptyString, memberId: nonEmptyString }).strict()).min(1).optional(),
         customName: z.string().trim().optional()
       }
     },
@@ -618,7 +619,8 @@ export function registerTools(
         const result = await gateway.createChannel(runtimeContext, {
           workspacePath: runtimeContext.workspacePath,
           userId: input.userId,
-          memberIds: input.memberIds,
+          memberIds: input.memberIds ?? [],
+          externalMembers: input.externalMembers,
           customName: input.customName
         });
         return buildToolSuccess("Created channel.", result);
@@ -633,13 +635,15 @@ export function registerTools(
     {
       title: "Add existing members to a Golutra group",
       description:
-        `${writesWorkspaceLabel} Add memberIds to a normal group you belong to using conversationId. Preserves all existing members, including concurrent additions. Repeated additions are a successful no-op. Inspect addedMemberIds, existingMemberIds and final memberIds. The Host fills verified identity/workspace; only provide them if requested. This does not create terminals or send messages. DM and default-channel changes are rejected. ${workspaceOverrideNote}`,
+        `${writesWorkspaceLabel} Add memberIds and/or externalMembers addresses to a normal group you belong to. Use conversationId, plus workspaceId for a joined external group. Keep your own workspacePath. Existing and concurrent additions are preserved; repeats are a no-op. Check addedMemberIds/existingMemberIds/memberIds. Does not create terminals or send tasks. DM/default groups are excluded. ${workspaceOverrideNote}`,
       inputSchema: {
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
         userId: nonEmptyString.optional(),
         conversationId: nonEmptyString,
-        memberIds: stringArraySchema.min(1)
+        workspaceId: nonEmptyString.optional(),
+        memberIds: stringArraySchema.min(1).optional(),
+        externalMembers: z.array(z.object({ workspaceId: nonEmptyString, memberId: nonEmptyString }).strict()).min(1).optional()
       }
     },
     async input => {
@@ -649,7 +653,9 @@ export function registerTools(
           workspacePath: runtimeContext.workspacePath,
           userId: input.userId,
           conversationId: input.conversationId,
-          memberIds: input.memberIds
+          workspaceId: input.workspaceId,
+          memberIds: input.memberIds ?? [],
+          externalMembers: input.externalMembers
         });
         return buildToolSuccess("Group membership updated; no task was dispatched.", result);
       } catch (error) {
@@ -756,7 +762,7 @@ export function registerTools(
     {
       title: "List Golutra conversations",
       description:
-        `${readOnlyAppLabel} Query workspace members and visible conversations, normally with no arguments from a member terminal. Use returned IDs for group creation, additions or messages. The Host fills verified identity and workspace; supply your own userId/workspacePath only if requested. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Query local conversations and externalChannels you have joined, normally with no arguments. External channels return workspaceId/conversationId and membersById; use these IDs to read history, add people or speak. Your verified member identity and workspace stay unchanged. ${workspaceOverrideNote}`,
       inputSchema: {
         userId: nonEmptyString.optional(),
         workspacePath: optionalWorkspacePath,
@@ -782,9 +788,11 @@ export function registerTools(
     {
       title: "List Golutra messages",
       description:
-        `${readOnlyAppLabel} Read recent messages from a Golutra channel or direct conversation. ${workspaceOverrideNote}`,
+        `${readOnlyAppLabel} Read history from a channel or direct conversation. For a joined external channel, add its workspaceId from externalChannels; keep your own workspacePath. A received channel's inbox conversationId also resolves to authoritative history. The Host verifies current group membership. ${workspaceOverrideNote}`,
       inputSchema: {
         conversationId: z.string().trim().min(1),
+        workspaceId: nonEmptyString.optional(),
+        userId: nonEmptyString.optional(),
         workspacePath: optionalWorkspacePath,
         profile: optionalProfile,
         limit: z.number().int().positive().max(200).optional(),
@@ -793,10 +801,11 @@ export function registerTools(
     },
     async (input) => {
       try {
-        const workspacePath = contextStore.requireWorkspacePath(input);
         const runtimeContext = contextStore.resolveCommandContext(input);
         const result = await gateway.listMessages(runtimeContext, {
-          workspacePath,
+          workspacePath: runtimeContext.workspacePath,
+          workspaceId: input.workspaceId,
+          userId: input.userId,
           conversationId: input.conversationId,
           limit: input.limit,
           beforeId: input.beforeId

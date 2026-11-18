@@ -9,15 +9,49 @@ const crossWorkspaceInfo = { ...info, capabilities: [...info.capabilities, "chat
 const context = {cliPath:"/build/golutra-cli", profile:"dev" as const, timeoutMs:1000};
 
 describe("batch messaging contract", () => {
-  it("accepts a cross-workspace member address while rejecting cross-workspace groups", () => {
+  it("accepts explicit private and channel addresses without mixing their fields", () => {
     expect(chatSendSchema.safeParse({text:"hello", to:{workspaceId:"project-b",memberId:"member-b"}}).success).toBe(true);
-    expect(chatSendSchema.safeParse({text:"hello", to:{workspaceId:"project-b",conversationId:"group",mentionIds:["b"]}}).success).toBe(false);
+    expect(chatSendSchema.safeParse({text:"hello", to:{workspaceId:"project-b",conversationId:"group",mentionIds:["b"]}}).success).toBe(true);
+    expect(chatSendSchema.safeParse({text:"hello", to:{workspaceId:"project-b",memberId:"member",conversationId:"group",mentionIds:["b"]}}).success).toBe(false);
+  });
+  it("requires paired Host support before creating or sending to an external group", async () => {
+    const capabilities = [...crossWorkspaceInfo.capabilities, "chatCrossWorkspaceChannels"];
+    const executeJson = vi.fn().mockResolvedValueOnce({...info,capabilities})
+      .mockResolvedValueOnce({...info,capabilities,host:{capabilities:["chatCrossWorkspaceChannels"]}})
+      .mockResolvedValue({ok:true,result:{status:"ok",data:{}}});
+    const gateway = new GolutraCliGateway({executeJson});
+    const externalMembers = [{workspaceId:"project-b",memberId:"b"}];
+    await expect(gateway.createChannel(context, {memberIds:[],externalMembers})).rejects.toThrow("Host does not support");
+    expect(executeJson).toHaveBeenCalledTimes(1);
+    await gateway.createChannel(context, {memberIds:[],externalMembers});
+    expect(JSON.parse((executeJson.mock.calls[2]![0] as CliCommandRequest).stdin!)).toEqual({type:"chat.channel.create",payload:{memberIds:[],externalMembers}});
+    const draft = {text:"hello",to:{workspaceId:"source",conversationId:"group",mentionIds:["a"]}};
+    await gateway.sendMessages(context,draft);
+    expect(JSON.parse((executeJson.mock.calls[3]![0] as CliCommandRequest).stdin!)).toEqual(draft);
   });
   it("queries contacts with verified source context and no invented target", async () => {
     const executeJson = vi.fn().mockResolvedValueOnce(crossWorkspaceInfo).mockResolvedValue({ok:true,result:{status:"ok",data:{contacts:[]}}});
     const gateway = new GolutraCliGateway({executeJson});
     await gateway.listChatContacts(context, {});
     expect(JSON.parse((executeJson.mock.calls[1]![0] as CliCommandRequest).stdin!)).toEqual({type:"chat.contacts.list",payload:{}});
+  });
+  it.each(["create", "invite", "history", "mixed batch"] as const)("rejects unsupported external %s after a successful local send", async operation => {
+    for (const cliInfo of [crossWorkspaceInfo, {
+      ...crossWorkspaceInfo,
+      capabilities: [...crossWorkspaceInfo.capabilities, "chatCrossWorkspaceChannels"],
+      host: { capabilities: [] }
+    }]) {
+      const executeJson = vi.fn().mockResolvedValueOnce(cliInfo).mockResolvedValue({ok:true,result:{status:"ok",data:{}}});
+      const gateway = new GolutraCliGateway({executeJson});
+      await gateway.sendMessages(context, {text:"local",to:{memberId:"local-member"}});
+      const externalMembers = [{workspaceId:"workspace-b",memberId:"b"}];
+      const action = operation === "create" ? gateway.createChannel(context, {memberIds:[],externalMembers})
+        : operation === "invite" ? gateway.addChannelMembers(context, {conversationId:"group-b",workspaceId:"workspace-b",memberIds:["b"]})
+        : operation === "history" ? gateway.listMessages(context, {conversationId:"group-b",workspaceId:"workspace-b"})
+        : gateway.sendMessages(context, {messages:[{text:"local",to:{memberId:"local-member"}},{text:"external",to:{workspaceId:"workspace-b",conversationId:"group-b",mentionIds:["b"]}}]});
+      await expect(action).rejects.toThrow(/chatCrossWorkspaceChannels|Host does not support/);
+      expect(executeJson).toHaveBeenCalledTimes(2);
+    }
   });
   it("keeps local chat available but rejects unsupported cross-workspace operations before submission", async () => {
     const executeJson = vi.fn().mockResolvedValueOnce(info).mockResolvedValueOnce({ok:true}).mockResolvedValue(info);

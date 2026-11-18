@@ -16,12 +16,15 @@ export declare const batchMessageSchema: z.ZodEffects<z.ZodObject<{
     }>, z.ZodObject<{
         conversationId: z.ZodString;
         mentionIds: z.ZodEffects<z.ZodArray<z.ZodString, "many">, string[], string[]>;
+        workspaceId: z.ZodOptional<z.ZodString>;
     }, "strict", z.ZodTypeAny, {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     }, {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     }>]>>;
     replyTo: z.ZodOptional<z.ZodString>;
     key: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
@@ -33,6 +36,7 @@ export declare const batchMessageSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -44,6 +48,7 @@ export declare const batchMessageSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -55,6 +60,7 @@ export declare const batchMessageSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -66,6 +72,7 @@ export declare const batchMessageSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -84,12 +91,15 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     }>, z.ZodObject<{
         conversationId: z.ZodString;
         mentionIds: z.ZodEffects<z.ZodArray<z.ZodString, "many">, string[], string[]>;
+        workspaceId: z.ZodOptional<z.ZodString>;
     }, "strict", z.ZodTypeAny, {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     }, {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     }>]>>;
     replyTo: z.ZodOptional<z.ZodString>;
     key: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
@@ -101,6 +111,7 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -112,6 +123,7 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -123,6 +135,7 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -134,6 +147,7 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -145,6 +159,7 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -156,6 +171,7 @@ export declare const batchMessagesSchema: z.ZodEffects<z.ZodArray<z.ZodEffects<z
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     key?: string | undefined;
     replyTo?: string | undefined;
@@ -179,12 +195,15 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         }>, z.ZodObject<{
             conversationId: z.ZodString;
             mentionIds: z.ZodEffects<z.ZodArray<z.ZodString, "many">, string[], string[]>;
+            workspaceId: z.ZodOptional<z.ZodString>;
         }, "strict", z.ZodTypeAny, {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         }, {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         }>]>>;
         replyTo: z.ZodOptional<z.ZodString>;
         key: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
@@ -196,6 +215,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -207,6 +227,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -218,6 +239,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -229,6 +251,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -240,6 +263,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -251,6 +275,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -270,12 +295,15 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
     }>, z.ZodObject<{
         conversationId: z.ZodString;
         mentionIds: z.ZodEffects<z.ZodArray<z.ZodString, "many">, string[], string[]>;
+        workspaceId: z.ZodOptional<z.ZodString>;
     }, "strict", z.ZodTypeAny, {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     }, {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     }>]>>;
     replyTo: z.ZodOptional<z.ZodString>;
     key: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
@@ -287,6 +315,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     requestId?: string | undefined;
     profile?: "dev" | "canary" | "stable" | undefined;
@@ -303,6 +332,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -316,6 +346,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     requestId?: string | undefined;
     profile?: "dev" | "canary" | "stable" | undefined;
@@ -332,6 +363,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -345,6 +377,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     requestId?: string | undefined;
     profile?: "dev" | "canary" | "stable" | undefined;
@@ -361,6 +394,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;
@@ -374,6 +408,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
     } | {
         conversationId: string;
         mentionIds: string[];
+        workspaceId?: string | undefined;
     } | undefined;
     requestId?: string | undefined;
     profile?: "dev" | "canary" | "stable" | undefined;
@@ -390,6 +425,7 @@ export declare const chatSendSchema: z.ZodEffects<z.ZodObject<{
         } | {
             conversationId: string;
             mentionIds: string[];
+            workspaceId?: string | undefined;
         } | undefined;
         key?: string | undefined;
         replyTo?: string | undefined;

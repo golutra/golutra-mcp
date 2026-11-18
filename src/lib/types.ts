@@ -124,6 +124,7 @@ export interface ChatConversationRecord {
 }
 
 export interface ChatConversationsListData {
+  externalChannels?: Array<{ workspaceId: string; conversationId: string; workspaceName: string; name?: string; memberIds: string[]; membersById: Record<string, unknown> }> | undefined;
   membersById?: Record<string, ChatConversationMember> | undefined;
   conversations?: ChatConversationRecord[] | undefined;
   defaultChannelId?: string | undefined;
@@ -151,6 +152,8 @@ export interface ChatMessageRecord {
 }
 
 export interface ChatMessagesListData {
+  workspaceId?: string | undefined;
+  conversationId?: string | undefined;
   messages?: ChatMessageRecord[] | undefined;
 }
 

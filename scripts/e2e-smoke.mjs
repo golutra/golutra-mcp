@@ -88,6 +88,7 @@ async function main() {
 
   try {
     await client.connect(transport);
+    assert.equal(client.getServerVersion()?.version, packageVersion);
 
     const listedTools = await client.listTools();
     const toolNames = listedTools.tools.map((tool) => tool.name);
@@ -108,6 +109,18 @@ async function main() {
     assert(!sendSchema.required?.includes("messages"));
     const directTargetSchema = sendSchema.properties.to.anyOf.find((schema) => schema.properties?.memberId);
     assert(directTargetSchema.properties.workspaceId);
+    const channelTargetSchema = sendSchema.properties.to.anyOf.find((schema) => schema.properties?.conversationId);
+    assert(channelTargetSchema.properties.workspaceId);
+    for (const name of ["golutra-create-channel", "golutra-add-channel-members"]) {
+      const schema = listedTools.tools.find(tool => tool.name === name).inputSchema;
+      assert(schema.properties.externalMembers.items.properties.workspaceId);
+      assert(schema.properties.externalMembers.items.properties.memberId);
+      assert(!schema.required?.includes("memberIds"));
+      assert(!schema.required?.includes("workspacePath"));
+      assert(!schema.required?.includes("userId"));
+    }
+    const historySchema = listedTools.tools.find(tool => tool.name === "golutra-list-messages").inputSchema;
+    assert(historySchema.properties.workspaceId);
     const inboxSchema = listedTools.tools.find(tool => tool.name === "golutra-read-inbox").inputSchema;
     assert(!inboxSchema.properties.cursor);
     assert(!inboxSchema.required?.includes("batchId"));
@@ -137,9 +150,10 @@ async function main() {
     assert.equal(info.ok, true);
     assert.equal(info.cliPath, contextArgs.cliPath);
     assert.equal(typeof info.host.runtimeInstanceId, "string");
-    for (const capability of ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic", "chatCrossWorkspace"]) {
+    for (const capability of ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic", "chatCrossWorkspace", "chatCrossWorkspaceChannels"]) {
       assert(info.capabilities.includes(capability), `missing CLI capability: ${capability}`);
     }
+    assert(info.host.capabilities.includes("chatCrossWorkspaceChannels"));
     if (contextArgs.profile) { assert.equal(info.profile, contextArgs.profile); }
 
     const listSkills = ensureToolSuccess(

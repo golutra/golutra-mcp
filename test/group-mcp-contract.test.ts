@@ -8,6 +8,37 @@ import { GolutraCliGateway } from "../src/lib/golutra-client.js";
 import type { CliJsonRunner } from "../src/lib/cli-runner.js";
 
 describe("group collaboration through MCP", () => {
+  it("preserves external addresses through SDK validation without switching the caller workspace", async () => {
+    const server = new McpServer({ name: "external-group-contract", version: "1" });
+    const executeJson = vi.fn<CliJsonRunner["executeJson"]>().mockResolvedValueOnce({
+      ok: true,
+      capabilities: ["chatSendDraft", "chatRetryFile", "chatInboxAllPages", "chatRetryDiagnostic", "chatCrossWorkspace", "chatCrossWorkspaceChannels"],
+      host: { capabilities: ["chatCrossWorkspaceChannels"] }
+    }).mockResolvedValue({ ok: true, result: { status: "ok", data: {} } });
+    const workspacePath = "/workspaces/caller";
+    const store = new ContextStore({ cliPath: "/build/golutra-cli", profile: "dev", timeoutMs: 1000, workspacePath });
+    registerTools(server, store, new GolutraCliGateway({ executeJson }));
+    const client = new Client({ name: "external-group-contract-client", version: "1" });
+    const [ct, st] = InMemoryTransport.createLinkedPair();
+    const externalMembers = [{ workspaceId: "workspace-b", memberId: "member-b" }];
+    try {
+      await server.connect(st); await client.connect(ct);
+      expect((await client.callTool({ name: "golutra-create-channel", arguments: { customName: "跨区群", externalMembers } })).isError).not.toBe(true);
+      expect((await client.callTool({ name: "golutra-add-channel-members", arguments: { workspaceId: "workspace-a", conversationId: "group-a", externalMembers } })).isError).not.toBe(true);
+      expect((await client.callTool({ name: "golutra-list-messages", arguments: { workspaceId: "workspace-a", conversationId: "group-a", limit: 20 } })).isError).not.toBe(true);
+      expect(executeJson.mock.calls.slice(1).map(([request]) => JSON.parse(request.stdin ?? "{}") as unknown)).toEqual([
+        { type: "chat.channel.create", payload: { workspacePath, customName: "跨区群", memberIds: [], externalMembers } },
+        { type: "chat.channel.members.add", payload: { workspacePath, workspaceId: "workspace-a", conversationId: "group-a", memberIds: [], externalMembers } },
+        { type: "chat.messages.list", payload: { workspacePath, workspaceId: "workspace-a", conversationId: "group-a", limit: 20 } }
+      ]);
+      const context = await client.callTool({ name: "golutra-get-context", arguments: {} });
+      expect(context.structuredContent).toMatchObject({ workspacePath, profile: "dev" });
+      expect((await client.callTool({ name: "golutra-create-channel", arguments: { customName: "没有成员" } })).isError).toBe(true);
+      expect((await client.callTool({ name: "golutra-add-channel-members", arguments: { conversationId: "group-a", externalMembers: [{ memberId: "member-b" }] } })).isError).toBe(true);
+      expect(executeJson).toHaveBeenCalledTimes(4);
+    } finally { await client.close(); await server.close(); }
+  });
+
   it("allows minimal inputs through SDK validation and sends one atomic command to CLI", async () => {
     const server = new McpServer({ name: "group-contract", version: "1" });
     const executeJson = vi.fn<CliJsonRunner["executeJson"]>().mockResolvedValue({

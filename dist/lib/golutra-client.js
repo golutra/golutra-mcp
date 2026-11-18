@@ -112,10 +112,14 @@ export class GolutraCliGateway {
         }, runtimeContext);
     }
     async listMessages(runtimeContext, input) {
+        if (input.workspaceId)
+            await this.requireChatSupport(runtimeContext, true, true);
         const payload = {
             type: "chat.messages.list",
             payload: {
                 workspacePath: input.workspacePath,
+                workspaceId: input.workspaceId,
+                userId: input.userId,
                 conversationId: input.conversationId,
                 ...(typeof input.limit === "number" ? { limit: input.limit } : {}),
                 ...(input.beforeId ? { beforeId: input.beforeId } : {})
@@ -123,7 +127,7 @@ export class GolutraCliGateway {
         };
         return this.executeCommand(payload, runtimeContext);
     }
-    async requireChatSupport(context, crossWorkspace = false) {
+    async requireChatSupport(context, crossWorkspace = false, externalChannel = false) {
         const key = JSON.stringify([context.cliPath, resolveRuntimeTargets(context)]);
         if (this.chatCompatibility?.key !== key) {
             this.chatCompatibility = { key, check: this.readCliInfo(context) };
@@ -136,6 +140,9 @@ export class GolutraCliGateway {
             if (crossWorkspace) {
                 required.push("chatCrossWorkspace");
             }
+            if (externalChannel) {
+                required.push("chatCrossWorkspaceChannels");
+            }
             const missing = required.filter(capability => !Array.isArray(info.capabilities) || !info.capabilities.includes(capability));
             if (missing.length) {
                 throw new CliExecutionError({
@@ -143,6 +150,12 @@ export class GolutraCliGateway {
                     code: "CLI_CHAT_CAPABILITY_REQUIRED", cliPath: context.cliPath, args: ["info", "--json"], exitCode: 0,
                     stdout: JSON.stringify(info)
                 });
+            }
+            if (externalChannel) {
+                const host = info.host;
+                if (!Array.isArray(host?.capabilities) || !host.capabilities.includes("chatCrossWorkspaceChannels")) {
+                    throw new Error("The connected Golutra Host does not support cross-workspace channels. Update Host and CLI together; no command was sent.");
+                }
             }
         }
         catch (error) {
@@ -154,7 +167,7 @@ export class GolutraCliGateway {
         }
     }
     async sendMessages(context, input) {
-        await this.requireChatSupport(context, Boolean(input.to?.workspaceId || input.messages?.some(message => message.to?.workspaceId)));
+        await this.requireChatSupport(context, Boolean(input.to?.workspaceId || input.messages?.some(message => message.to?.workspaceId)), Boolean((input.to?.workspaceId && input.to.conversationId) || input.messages?.some(message => message.to?.workspaceId && message.to.conversationId)));
         return this.executeJsonWithRuntimeTargets(context, target => [
             ...buildProfileArgs(target.profile), "chat", "send", "--stdin", "--timeout-ms", String(context.timeoutMs)
         ], JSON.stringify(input), context.timeoutMs * 2 + 1500);
@@ -264,17 +277,26 @@ export class GolutraCliGateway {
         return this.executeCommand({ type: "chat.contacts.list", payload: { ...input } }, runtimeContext);
     }
     async createChannel(runtimeContext, input) {
+        if (input.externalMembers?.length)
+            await this.requireChatSupport(runtimeContext, true, true);
+        if (!input.memberIds.length && !input.externalMembers?.length)
+            throw new Error("Provide memberIds or externalMembers.");
         return this.executeCommand({
             type: "chat.channel.create",
             payload: {
                 workspacePath: input.workspacePath,
                 userId: input.userId,
                 memberIds: input.memberIds,
+                ...(input.externalMembers?.length ? { externalMembers: input.externalMembers } : {}),
                 ...(input.customName ? { customName: input.customName } : {})
             }
         }, runtimeContext);
     }
     async addChannelMembers(runtimeContext, input) {
+        if (input.externalMembers?.length || input.workspaceId)
+            await this.requireChatSupport(runtimeContext, true, true);
+        if (!input.memberIds.length && !input.externalMembers?.length)
+            throw new Error("Provide memberIds or externalMembers.");
         return this.executeCommand({ type: "chat.channel.members.add", payload: { ...input } }, runtimeContext);
     }
     async ensureDirect(runtimeContext, input) {

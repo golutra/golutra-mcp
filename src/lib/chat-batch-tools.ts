@@ -11,7 +11,7 @@ const messageShape = {
   text: z.string().min(1).refine(value => value.trim().length > 0, "text is required"),
   to: z.union([
     z.object({ memberId: id, workspaceId: id.optional().describe("Only for a private message to another workspace on this Host/profile. Use the address returned by golutra-list-chat-contacts.") }).strict(),
-    z.object({ conversationId: id, mentionIds: mentions }).strict()
+    z.object({ conversationId: id, mentionIds: mentions, workspaceId: id.optional().describe("For a joined external channel, use its workspaceId from golutra-list-conversations.externalChannels; keep your own workspacePath.") }).strict()
   ]).optional(),
   replyTo: id.optional(),
   key: retryKey.optional().describe("Normally omitted. Supply only when requested by a specific CLI error.")
@@ -79,7 +79,7 @@ export function registerChatBatchTools(server: McpServer, contextStore: ContextS
   });
   server.registerTool("golutra-send-messages", {
     title: "Send Golutra messages and replies",
-    description: "Writes workspace. Send text for one message, or messages for up to 128 ready messages. The CLI fills verified identity and the unique current reply source; add to or replyTo when needed. For a private message to another workspace, use to.workspaceId and to.memberId from golutra-list-chat-contacts. Only supply other context if an error requests it. Inspect result.data.items; queued means accepted, pending_transfer means waiting for durable workspace forwarding, neither means model completion. For timeout or partial failure, use the returned retryFile on the same profile/Host. Failures retain the original CLI JSON and retryFile when available. Never resubmit short input to retry an earlier turn or switch runtimes. Read chat help only when unclear.",
+    description: "Writes workspace. Send text for one message, or messages for up to 128 ready messages. The CLI fills verified identity and the unique current reply source; add to or replyTo when needed. Cross-workspace private messages use to.workspaceId + memberId from contacts. Joined external channels use to.workspaceId + conversationId + mentionIds from golutra-list-conversations.externalChannels. Keep your own workspacePath and sender; replies still need only text or the inbox messageId as replyTo. Inspect result.data.items: queued/pending_transfer mean acceptance, not model completion. Retry with the returned retryFile on the same profile/Host; never regenerate an earlier turn's short input. Read chat help only when unclear.",
     inputSchema: chatSendInputSchema
   }, async input => {
     try {

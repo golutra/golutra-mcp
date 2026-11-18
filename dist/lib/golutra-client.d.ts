@@ -26,7 +26,9 @@ export declare class GolutraCliGateway {
         userId?: string | undefined;
     }): Promise<ChatConversationsListData>;
     listMessages(runtimeContext: RuntimeContextSnapshot, input: {
-        workspacePath: string;
+        workspacePath?: string | undefined;
+        workspaceId?: string | undefined;
+        userId?: string | undefined;
         conversationId: string;
         limit?: number | undefined;
         beforeId?: string | undefined;
@@ -83,6 +85,10 @@ export declare class GolutraCliGateway {
         workspacePath?: string | undefined;
         userId?: string | undefined;
         memberIds: string[];
+        externalMembers?: {
+            workspaceId: string;
+            memberId: string;
+        }[] | undefined;
         customName?: string | undefined;
     }): Promise<Record<string, unknown>>;
     addChannelMembers(runtimeContext: RuntimeContextSnapshot, input: {
@@ -90,6 +96,11 @@ export declare class GolutraCliGateway {
         userId?: string | undefined;
         conversationId: string;
         memberIds: string[];
+        externalMembers?: {
+            workspaceId: string;
+            memberId: string;
+        }[] | undefined;
+        workspaceId?: string | undefined;
     }): Promise<Record<string, unknown>>;
     ensureDirect(runtimeContext: RuntimeContextSnapshot, input: {
         workspacePath: string;
